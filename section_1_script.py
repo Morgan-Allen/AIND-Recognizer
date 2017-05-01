@@ -1,84 +1,54 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 Created on Sun Apr 30 18:11:14 2017
 
 @author: morganallen
 """
 
-
 import numpy as np
+import math
 import pandas as pd
 from asl_data import AslDb
+from asl_utils import test_features_tryit
+from asl_utils import test_std_tryit
+import unittest
+import warnings
+from hmmlearn.hmm import GaussianHMM
+from my_model_selectors import SelectorConstant
+from sklearn.model_selection import KFold
 
 
-# initializes the database anddisplays the first five rows of the asl database,
-# indexed by video and frame
+
+# initializes the database
+
 asl = AslDb()
-asl.df.head() 
 
-# look at the data available for an individual frame
-asl.df.ix[98,1]
+features_core   = ['right-x', 'right-y', 'left-x' , 'left-y' ]
+features_ground = ['grnd-rx', 'grnd-ry', 'grnd-lx', 'grnd-ly']
+features_norm   = ['norm-rx', 'norm-ry', 'norm-lx', 'norm-ly']
+features_polar  = ['polar-rr', 'polar-rtheta', 'polar-lr', 'polar-ltheta']
+features_delta  = ['delta-rx', 'delta-ry', 'delta-lx', 'delta-ly']
+features_custom = []
 
-# the new feature 'grnd-ry' is now in the frames dictionary
 asl.df['grnd-rx'] = asl.df['right-x'] - asl.df['nose-x']
 asl.df['grnd-ry'] = asl.df['right-y'] - asl.df['nose-y']
 asl.df['grnd-lx'] = asl.df['left-x' ] - asl.df['nose-x']
 asl.df['grnd-ly'] = asl.df['left-y' ] - asl.df['nose-y']
-asl.df.head()
-
-
-from asl_utils import test_features_tryit
-# test the code
-test_features_tryit(asl)
-
-
-# collect the features into a list
-features_ground = ['grnd-rx','grnd-ry','grnd-lx','grnd-ly']
-# show a single set of features for a given (video, frame) tuple
-[asl.df.ix[98,1][v] for v in features_ground]
-
-training = asl.build_training(features_ground)
-print("Training words: {}".format(training.words))
-
-training.get_word_Xlengths('CHOCOLATE')
-
 
 df_means = asl.df.groupby('speaker').mean()
-df_means
-
-asl.df.head()
-
-from asl_utils import test_std_tryit
-df_std = asl.df.groupby('speaker').std()
-
-# test the code
-test_std_tryit(df_std)
-
-
-
-# TODO add features for normalized by speaker values of left, right, x, y
-# Name these 'norm-rx', 'norm-ry', 'norm-lx', and 'norm-ly'
-# using Z-score scaling (X-Xmean)/Xstd
-
-features_core = ['right-x', 'right-y', 'left-x' , 'left-y' ]
-features_norm = ['norm-rx', 'norm-ry', 'norm-lx', 'norm-ly']
+df_std   = asl.df.groupby('speaker').std ()
 feature_index = [(i, features_core[i]) for i in range(len(features_core))]
 df_all_mean   = {}
 df_all_std    = {}
+
+
+#  Here we set up normalised features:
 
 for i, feature in feature_index:
     df_all_mean[feature] = asl.df['speaker'].map(df_means[feature])
     df_all_std [feature] = asl.df['speaker'].map(df_std  [feature])
     asl.df[features_norm[i]] = (asl.df[feature] - df_all_mean[feature]) / df_all_std[feature]
 
-
-
-# TODO add features for polar coordinate values where the nose is the origin
-# Name these 'polar-rr', 'polar-rtheta', 'polar-lr', and 'polar-ltheta'
-# Note that 'polar-rr' and 'polar-rtheta' refer to the radius and angle
-
-features_polar = ['polar-rr', 'polar-rtheta', 'polar-lr', 'polar-ltheta']
+#  Here we set up polar coordinates:
 
 def radius_orig(x_a, y_a):
     return [np.sqrt((x * x) + (y * y)) for (x, y) in zip(x_a, y_a)]
@@ -88,30 +58,168 @@ asl.df['polar-rtheta'] = np.arctan2 (asl.df['grnd-rx'], asl.df['grnd-ry'])
 asl.df['polar-lr'    ] = radius_orig(asl.df['grnd-lx'], asl.df['grnd-ly'])
 asl.df['polar-ltheta'] = np.arctan2 (asl.df['grnd-lx'], asl.df['grnd-ly'])
 
-
-
-# TODO add features for left, right, x, y differences by one time step, i.e. the "delta" values discussed in the lecture
-# Name these 'delta-rx', 'delta-ry', 'delta-lx', and 'delta-ly'
-
-features_delta = ['delta-rx', 'delta-ry', 'delta-lx', 'delta-ly']
+#  Here we set up delta coordinates:
 
 for i, feature in feature_index:
     data_diff = np.lib.pad(np.diff(asl.df[feature]), (1,0), 'constant', constant_values=(0, 0))
     asl.df[features_delta[i]] = data_diff
 
-
 # TODO add features of your own design, which may be a combination of the above or something else
 # Name these whatever you would like
 
-# TODO define a list named 'features_custom' for building the training set
-features_custom = []
 
 
-import unittest
-# import numpy as np
+#  NOTE:  The model will compute covariance between each of it's internal component-dimensions
+#  and all the features (though often you'll only be looking for a match between the [i]th
+#  feature and the i[th] dimension, as by default.)  The covariance is stored in matrix form,
+#  With i-to-i covariance stored along the diagonal.
+
+def train_a_word(word, num_hidden_states, training_set):
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
+    X, lengths = training_set.get_word_Xlengths(word)
+    model      = GaussianHMM(n_components=num_hidden_states, n_iter=1000).fit(X, lengths)
+    logL       = model.score(X, lengths)
+    return model, logL
+
+def show_model_stats(word, model, features):
+    print("Number of states trained in model for {} is {}".format(word, model.n_components))
+    variance=np.array([np.diag(model.covars_[i]) for i in range(model.n_components)])
+    for i in range(model.n_components):  # for each hidden state
+        print("hidden state #{}".format(i))
+        print("features   = ", features)
+        print("mean       = ", model.means_[i])
+        print("variance   = ", variance[i])
+        print("trans %    = ", [int(p * 100) for p in model.transmat_[i]])
+        print()
+
+def train_and_show_model_stats(word, num_states, features, training_set):
+    model, logL = train_a_word(word, num_states, training_set)
+    show_model_stats(word, model, features)
+    return model
+
+
+print("Top rows of data: ", asl.df.head())
+ground_training_set = asl.build_training(features_ground)
+
+train_and_show_model_stats('BOOK', 3, features_ground, ground_training_set)
+
+
+
+
+"""
+
+demoword = 'BOOK'
+model, logL = train_a_word(demoword, 3, features_ground)
+print("Number of states trained in model for {} is {}".format(demoword, model.n_components))
+print("logL = {}".format(logL))
+
+show_model_stats(demoword, model, features_ground)
+
+my_testword = 'CHOCOLATE'
+model, logL = train_a_word(my_testword, 3, features_ground) # Experiment here with different parameters
+show_model_stats(my_testword, model, features_ground)
+print("logL = {}".format(logL))
+
+
+
+
+training = asl.build_training(features_ground)  # Experiment here with different feature sets defined in part 1
+word = 'VEGETABLE' # Experiment here with different words
+model = SelectorConstant(training.get_all_sequences(), training.get_all_Xlengths(), word, n_constant=3).select()
+print("Number of states trained in model for {} is {}".format(word, model.n_components))
+
+
+
+# Experiment here with different feature sets
+# Experiment here with different words
+# view indices of the folds
+
+training = asl.build_training(features_ground) 
+word = 'VEGETABLE' 
+word_sequences = training.get_word_sequences(word)
+split_method = KFold()
+for cv_train_idx, cv_test_idx in split_method.split(word_sequences):
+    print("Train fold indices:{} Test fold indices:{}".format(cv_train_idx, cv_test_idx))
+"""
+
+
+
+"""
+words_to_train = ['FISH', 'BOOK', 'VEGETABLE', 'FUTURE', 'JOHN']
+import timeit
+
+
+# TODO: Implement SelectorCV in my_model_selector.py
+from my_model_selectors import SelectorCV
+
+training = asl.build_training(features_ground)  # Experiment here with different feature sets defined in part 1
+sequences = training.get_all_sequences()
+Xlengths = training.get_all_Xlengths()
+for word in words_to_train:
+    start = timeit.default_timer()
+    model = SelectorCV(sequences, Xlengths, word, 
+                    min_n_components=2, max_n_components=15, random_state = 14).select()
+    end = timeit.default_timer()-start
+    if model is not None:
+        print("Training complete for {} with {} states with time {} seconds".format(word, model.n_components, end))
+    else:
+        print("Training failed for {}".format(word))
+
+
+
+# TODO: Implement SelectorBIC in module my_model_selectors.py
+from my_model_selectors import SelectorBIC
+
+training = asl.build_training(features_ground)  # Experiment here with different feature sets defined in part 1
+sequences = training.get_all_sequences()
+Xlengths = training.get_all_Xlengths()
+for word in words_to_train:
+    start = timeit.default_timer()
+    model = SelectorBIC(sequences, Xlengths, word, 
+                    min_n_components=2, max_n_components=15, random_state = 14).select()
+    end = timeit.default_timer()-start
+    if model is not None:
+        print("Training complete for {} with {} states with time {} seconds".format(word, model.n_components, end))
+    else:
+        print("Training failed for {}".format(word))
+
+
+
+# TODO: Implement SelectorDIC in module my_model_selectors.py
+from my_model_selectors import SelectorDIC
+
+training = asl.build_training(features_ground)  # Experiment here with different feature sets defined in part 1
+sequences = training.get_all_sequences()
+Xlengths = training.get_all_Xlengths()
+for word in words_to_train:
+    start = timeit.default_timer()
+    model = SelectorDIC(sequences, Xlengths, word, 
+                    min_n_components=2, max_n_components=15, random_state = 14).select()
+    end = timeit.default_timer()-start
+    if model is not None:
+        print("Training complete for {} with {} states with time {} seconds".format(word, model.n_components, end))
+    else:
+        print("Training failed for {}".format(word))
+
+
+
+from asl_test_model_selectors import TestSelectors
+suite = unittest.TestLoader().loadTestsFromModule(TestSelectors())
+unittest.TextTestRunner().run(suite)
+"""
+
+
+"""
+# print("Training words: {}".format(training.words))
+# training.get_word_Xlengths('CHOCOLATE')
 
 class TestFeatures(unittest.TestCase):
-
+    
+    def test_features_basic(self):
+        test_features_tryit(asl)
+        test_std_tryit(df_std)
+        self.assertEqual(True, True)
+    
     def test_features_ground(self):
         sample = (asl.df.ix[98, 1][features_ground]).tolist()
         self.assertEqual(sample, [9, 113, -12, 119])
@@ -133,8 +241,6 @@ class TestFeatures(unittest.TestCase):
 suite = unittest.TestLoader().loadTestsFromModule(TestFeatures())
 unittest.TextTestRunner().run(suite)
 
-
-
-
+"""
 
 
