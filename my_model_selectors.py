@@ -7,6 +7,9 @@ import numpy as np
 from hmmlearn.hmm import GaussianHMM
 from sklearn.model_selection import KFold
 from asl_utils import combine_sequences
+from asl_utils import print_sequences
+from asl_utils import print_X_and_L
+from asl_utils import show_model_stats
 
 
 
@@ -23,7 +26,8 @@ class ModelSelector(object):
         min_n_components    = 2,
         max_n_components    = 10,
         random_state        = 14,
-        verbose             = False
+        verbose             = False,
+        features            = []
     ):
         self.words            = all_word_sequences
         self.hwords           = all_word_Xlengths
@@ -35,8 +39,9 @@ class ModelSelector(object):
         self.max_n_components = max_n_components
         self.random_state     = random_state
         self.verbose          = verbose
+        self.features         = features
     
-    def base_model(self, num_states, sequences = self.X, lengths = None):
+    def base_model(self, num_states, sequences = None, lengths = None):
         # with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=DeprecationWarning)
         # warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -48,6 +53,7 @@ class ModelSelector(object):
                 random_state    = self.random_state,
                 verbose         = False
             )
+            if sequences == None: sequences = self.X
             if lengths != None: model.fit(sequences, lengths)
             else:               model.fit(sequences)
             if self.verbose:
@@ -130,17 +136,24 @@ class SelectorCV(ModelSelector):
         picked     = None
         best_score = float("-inf")
         
-        for train_IDs, test_IDs in split:
-            train_seqs = [self.sequences[i] for i in train_IDs]
-            test_seqs  = [self.sequences[i] for i in test_IDs ]
+        for train_IDs, tests_IDs in split:
+            train_X, train_L = combine_sequences(train_IDs, self.sequences)
+            tests_X, tests_L = combine_sequences(tests_IDs, self.sequences)
+            
+            if self.verbose:
+                print_X_and_L(train_X, train_L, "Train on:")
+                print_X_and_L(tests_X, tests_L, "Tests on:")
             
             for p in range(self.min_n_components, self.max_n_components):
-                model = self.base_model(p, train_seqs)
-                score = model.score(test_seqs)
+                model = self.base_model(p, train_X, train_L)
+                score = model.score(tests_X, tests_L)
                 
                 if score > best_score:
                     picked     = model
                     best_score = score
+        
+        if self.verbose:
+            show_model_stats(self.this_word, picked, self.features)
         
         return picked
 

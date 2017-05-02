@@ -24,7 +24,7 @@ def show_errors(guesses: list, test_set: SinglesData):
     for word_id in range(num_test_words):
         if guesses[word_id] != test_set.wordlist[word_id]:
             S += 1
-
+    
     print("\n**** WER = {}".format(float(S) / float(N)))
     print("Total correct: {} out of {}".format(N - S, N))
     print('Video  Recognized                                                    Correct')
@@ -36,6 +36,40 @@ def show_errors(guesses: list, test_set: SinglesData):
             if recognized_sentence[i] != correct_sentence[i]:
                 recognized_sentence[i] = '*' + recognized_sentence[i]
         print('{:5}: {:60}  {}'.format(video_num, ' '.join(recognized_sentence), ' '.join(correct_sentence)))
+
+
+def print_sequences(sequences, intro=""):
+    print("{}[".format(intro))
+    for seq in sequences:
+        print("  [")
+        for frame in seq:
+            print("    {}".format(frame))
+        print("  ]")
+    print("]")
+
+
+def print_X_and_L(seq_X, seq_L, intro=""):
+    print("{}[".format(intro))
+    index = 0
+    for length in seq_L:
+        print("  [")
+        for i in range(length):
+            print("    {}".format(seq_X[index]))
+            index += 1
+        print("  ]")
+    print("]")
+
+
+def show_model_stats(word, model, features):
+    print("Number of states trained in model for {} is {}".format(word, model.n_components))
+    variance=np.array([np.diag(model.covars_[i]) for i in range(model.n_components)])
+    for i in range(model.n_components):  # for each hidden state
+        print("hidden state #{}".format(i))
+        print("features   = ", features)
+        print("mean       = ", model.means_[i])
+        print("variance   = ", variance[i])
+        print("trans %    = ", [int(p * 100) for p in model.transmat_[i]])
+        print()
 
 
 def getKey(item):

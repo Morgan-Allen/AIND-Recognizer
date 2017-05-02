@@ -5,12 +5,9 @@ Created on Sun Apr 30 18:11:14 2017
 """
 
 import numpy as np
-import math
-import pandas as pd
 from asl_data import AslDb
-from asl_utils import test_features_tryit
-from asl_utils import test_std_tryit
-import unittest
+from asl_utils import print_sequences
+from asl_utils import show_model_stats
 import warnings
 import timeit
 from hmmlearn.hmm import GaussianHMM
@@ -77,23 +74,12 @@ def train_a_word(word, num_hidden_states, training_set):
     logL       = model.score(X, lengths)
     return model, logL
 
-def show_model_stats(word, model, features):
-    print("Number of states trained in model for {} is {}".format(word, model.n_components))
-    variance=np.array([np.diag(model.covars_[i]) for i in range(model.n_components)])
-    for i in range(model.n_components):  # for each hidden state
-        print("hidden state #{}".format(i))
-        print("features   = ", features)
-        print("mean       = ", model.means_[i])
-        print("variance   = ", variance[i])
-        print("trans %    = ", [int(p * 100) for p in model.transmat_[i]])
-        print()
-
 def train_and_show_model_stats(word, num_states, features, training_set):
     model, logL = train_a_word(word, num_states, training_set)
     show_model_stats(word, model, features)
     return model, logL
 
-def train_with_selector(words_to_train, training_set, selector_class):
+def train_with_selector(words_to_train, features, training_set, selector_class, verbose):
     sequences = training_set.get_all_sequences()
     Xlengths  = training_set.get_all_Xlengths ()
     
@@ -105,7 +91,9 @@ def train_with_selector(words_to_train, training_set, selector_class):
             word,
             min_n_components = 2,
             max_n_components = 15,
-            random_state     = 14
+            random_state     = 14,
+            verbose          = verbose,
+            features         = features
         ).select()
         end = timeit.default_timer()-start
         if model is not None:
@@ -119,26 +107,27 @@ print("Top rows of data:\n\n{}".format(asl.df.head()))
 
 test_word = 'BOOK'
 test_features = features_ground
-
 test_training_set = asl.build_training(features_ground)
 
-
+"""
 test_word_X, test_word_lengths = test_training_set.get_word_Xlengths(test_word)
 print("\n\nData on", test_word, "is:\n{}{}\n".format(test_word_X, test_word_lengths))
 
 train_and_show_model_stats(test_word, 3, features_ground, test_training_set)
 
 word_sequences = test_training_set.get_word_sequences(test_word)
-print("\n\nWord sequences:", word_sequences)
+print("\n\nWord sequences:")
+print_sequences(word_sequences)
+
+for cv_train_idx, cv_test_idx in KFold().split(word_sequences):
+    print("Train fold indices:{} Test fold indices:{}".format(cv_train_idx, cv_test_idx))
+"""
 
 #  The difference between test_word_X and word_sequences is that the latter
 #  simply nests each sequence within it's own array, rather than munging them
 #  together and tacking on the lengths afterward.
 
-for cv_train_idx, cv_test_idx in KFold().split(word_sequences):
-    print("Train fold indices:{} Test fold indices:{}".format(cv_train_idx, cv_test_idx))
-
-
+train_with_selector([test_word], test_features, test_training_set, SelectorCV, True)
 
 
 
