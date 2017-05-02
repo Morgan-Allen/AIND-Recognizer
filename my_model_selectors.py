@@ -36,25 +36,30 @@ class ModelSelector(object):
         self.random_state     = random_state
         self.verbose          = verbose
     
-    def base_model(self, num_states):
+    def base_model(self, num_states, sequences, lengths = None):
         # with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=DeprecationWarning)
         # warnings.filterwarnings("ignore", category=RuntimeWarning)
         try:
-            hmm_model = GaussianHMM(
+            model = GaussianHMM(
                 n_components    = num_states,
                 covariance_type = "diag",
                 n_iter          = 1000,
                 random_state    = self.random_state,
                 verbose         = False
-            ).fit(self.X, self.lengths)
+            )
+            if lengths != None: model.fit(sequences, lengths)
+            else:               model.fit(sequences)
             if self.verbose:
                 print("model created for {} with {} states".format(self.this_word, num_states))
-            return hmm_model
+            return model
         except:
             if self.verbose:
                 print("failure on {} with {} states".format(self.this_word, num_states))
             return None
+    
+    def base_model(self, num_states):
+        return self.base_model(num_states, self.X, self.lengths)
     
     def select(self):
         picked = None
@@ -110,17 +115,34 @@ class SelectorDIC(ModelSelector):
     def score_model(self, model):
         # TODO implement model selection based on DIC scores
         
-        
-        
         raise NotImplementedError
 
 
 class SelectorCV(ModelSelector):
     ''' select best model based on average log Likelihood of cross-validation folds
     '''
-    def score_model(self, model):
-        # TODO implement model selection using CV
-        raise NotImplementedError
+    
+    def select(self):
+        split      = KFold().split(self.sequences)
+        picked     = None
+        best_score = float("-inf")
+        
+        for train_IDs, test_IDs in split:
+            train_seqs = [self.sequences[i] for i in train_IDs]
+            test_seqs  = [self.sequences[i] for i in test_IDs ]
+            
+            for p in range(self.min_n_components, self.max_n_components):
+                model = self.base_model(p, train_seqs)
+                score = model.score(test_seqs)
+                
+                if score > best_score:
+                    picked     = model
+                    best_score = score
+        
+        return picked
+
+
+
 
 
 

@@ -12,8 +12,9 @@ from asl_utils import test_features_tryit
 from asl_utils import test_std_tryit
 import unittest
 import warnings
+import timeit
 from hmmlearn.hmm import GaussianHMM
-from my_model_selectors import SelectorConstant
+from my_model_selectors import (SelectorConstant, SelectorCV, SelectorDIC, SelectorBIC)
 from sklearn.model_selection import KFold
 
 
@@ -40,15 +41,12 @@ feature_index = [(i, features_core[i]) for i in range(len(features_core))]
 df_all_mean   = {}
 df_all_std    = {}
 
-
-#  Here we set up normalised features:
+#  Here we set up normalised, polar and delta features:
 
 for i, feature in feature_index:
     df_all_mean[feature] = asl.df['speaker'].map(df_means[feature])
     df_all_std [feature] = asl.df['speaker'].map(df_std  [feature])
     asl.df[features_norm[i]] = (asl.df[feature] - df_all_mean[feature]) / df_all_std[feature]
-
-#  Here we set up polar coordinates:
 
 def radius_orig(x_a, y_a):
     return [np.sqrt((x * x) + (y * y)) for (x, y) in zip(x_a, y_a)]
@@ -57,8 +55,6 @@ asl.df['polar-rr'    ] = radius_orig(asl.df['grnd-rx'], asl.df['grnd-ry'])
 asl.df['polar-rtheta'] = np.arctan2 (asl.df['grnd-rx'], asl.df['grnd-ry'])
 asl.df['polar-lr'    ] = radius_orig(asl.df['grnd-lx'], asl.df['grnd-ly'])
 asl.df['polar-ltheta'] = np.arctan2 (asl.df['grnd-lx'], asl.df['grnd-ly'])
-
-#  Here we set up delta coordinates:
 
 for i, feature in feature_index:
     data_diff = np.lib.pad(np.diff(asl.df[feature]), (1,0), 'constant', constant_values=(0, 0))
@@ -77,7 +73,7 @@ for i, feature in feature_index:
 def train_a_word(word, num_hidden_states, training_set):
     warnings.filterwarnings("ignore", category=DeprecationWarning)
     X, lengths = training_set.get_word_Xlengths(word)
-    model      = GaussianHMM(n_components=num_hidden_states, n_iter=1000).fit(X, lengths)
+    model      = GaussianHMM(n_components = num_hidden_states, n_iter = 1000).fit(X, lengths)
     logL       = model.score(X, lengths)
     return model, logL
 
@@ -95,152 +91,54 @@ def show_model_stats(word, model, features):
 def train_and_show_model_stats(word, num_states, features, training_set):
     model, logL = train_a_word(word, num_states, training_set)
     show_model_stats(word, model, features)
-    return model
+    return model, logL
 
-
-print("Top rows of data: ", asl.df.head())
-ground_training_set = asl.build_training(features_ground)
-
-train_and_show_model_stats('BOOK', 3, features_ground, ground_training_set)
-
-
-
-
-"""
-
-demoword = 'BOOK'
-model, logL = train_a_word(demoword, 3, features_ground)
-print("Number of states trained in model for {} is {}".format(demoword, model.n_components))
-print("logL = {}".format(logL))
-
-show_model_stats(demoword, model, features_ground)
-
-my_testword = 'CHOCOLATE'
-model, logL = train_a_word(my_testword, 3, features_ground) # Experiment here with different parameters
-show_model_stats(my_testword, model, features_ground)
-print("logL = {}".format(logL))
+def train_with_selector(words_to_train, training_set, selector_class):
+    sequences = training_set.get_all_sequences()
+    Xlengths  = training_set.get_all_Xlengths ()
+    
+    for word in words_to_train:
+        start = timeit.default_timer()
+        model = selector_class(
+            sequences,
+            Xlengths,
+            word,
+            min_n_components = 2,
+            max_n_components = 15,
+            random_state     = 14
+        ).select()
+        end = timeit.default_timer()-start
+        if model is not None:
+            print("Training complete for {} with {} states with time {} seconds".format(word, model.n_components, end))
+        else:
+            print("Training failed for {}".format(word))
 
 
 
+print("Top rows of data:\n\n{}".format(asl.df.head()))
 
-training = asl.build_training(features_ground)  # Experiment here with different feature sets defined in part 1
-word = 'VEGETABLE' # Experiment here with different words
-model = SelectorConstant(training.get_all_sequences(), training.get_all_Xlengths(), word, n_constant=3).select()
-print("Number of states trained in model for {} is {}".format(word, model.n_components))
+test_word = 'BOOK'
+test_features = features_ground
+
+test_training_set = asl.build_training(features_ground)
 
 
+test_word_X, test_word_lengths = test_training_set.get_word_Xlengths(test_word)
+print("\n\nData on", test_word, "is:\n{}{}\n".format(test_word_X, test_word_lengths))
 
-# Experiment here with different feature sets
-# Experiment here with different words
-# view indices of the folds
+train_and_show_model_stats(test_word, 3, features_ground, test_training_set)
 
-training = asl.build_training(features_ground) 
-word = 'VEGETABLE' 
-word_sequences = training.get_word_sequences(word)
-split_method = KFold()
-for cv_train_idx, cv_test_idx in split_method.split(word_sequences):
+word_sequences = test_training_set.get_word_sequences(test_word)
+print("\n\nWord sequences:", word_sequences)
+
+#  The difference between test_word_X and word_sequences is that the latter
+#  simply nests each sequence within it's own array, rather than munging them
+#  together and tacking on the lengths afterward.
+
+for cv_train_idx, cv_test_idx in KFold().split(word_sequences):
     print("Train fold indices:{} Test fold indices:{}".format(cv_train_idx, cv_test_idx))
-"""
 
 
 
-"""
-words_to_train = ['FISH', 'BOOK', 'VEGETABLE', 'FUTURE', 'JOHN']
-import timeit
-
-
-# TODO: Implement SelectorCV in my_model_selector.py
-from my_model_selectors import SelectorCV
-
-training = asl.build_training(features_ground)  # Experiment here with different feature sets defined in part 1
-sequences = training.get_all_sequences()
-Xlengths = training.get_all_Xlengths()
-for word in words_to_train:
-    start = timeit.default_timer()
-    model = SelectorCV(sequences, Xlengths, word, 
-                    min_n_components=2, max_n_components=15, random_state = 14).select()
-    end = timeit.default_timer()-start
-    if model is not None:
-        print("Training complete for {} with {} states with time {} seconds".format(word, model.n_components, end))
-    else:
-        print("Training failed for {}".format(word))
-
-
-
-# TODO: Implement SelectorBIC in module my_model_selectors.py
-from my_model_selectors import SelectorBIC
-
-training = asl.build_training(features_ground)  # Experiment here with different feature sets defined in part 1
-sequences = training.get_all_sequences()
-Xlengths = training.get_all_Xlengths()
-for word in words_to_train:
-    start = timeit.default_timer()
-    model = SelectorBIC(sequences, Xlengths, word, 
-                    min_n_components=2, max_n_components=15, random_state = 14).select()
-    end = timeit.default_timer()-start
-    if model is not None:
-        print("Training complete for {} with {} states with time {} seconds".format(word, model.n_components, end))
-    else:
-        print("Training failed for {}".format(word))
-
-
-
-# TODO: Implement SelectorDIC in module my_model_selectors.py
-from my_model_selectors import SelectorDIC
-
-training = asl.build_training(features_ground)  # Experiment here with different feature sets defined in part 1
-sequences = training.get_all_sequences()
-Xlengths = training.get_all_Xlengths()
-for word in words_to_train:
-    start = timeit.default_timer()
-    model = SelectorDIC(sequences, Xlengths, word, 
-                    min_n_components=2, max_n_components=15, random_state = 14).select()
-    end = timeit.default_timer()-start
-    if model is not None:
-        print("Training complete for {} with {} states with time {} seconds".format(word, model.n_components, end))
-    else:
-        print("Training failed for {}".format(word))
-
-
-
-from asl_test_model_selectors import TestSelectors
-suite = unittest.TestLoader().loadTestsFromModule(TestSelectors())
-unittest.TextTestRunner().run(suite)
-"""
-
-
-"""
-# print("Training words: {}".format(training.words))
-# training.get_word_Xlengths('CHOCOLATE')
-
-class TestFeatures(unittest.TestCase):
-    
-    def test_features_basic(self):
-        test_features_tryit(asl)
-        test_std_tryit(df_std)
-        self.assertEqual(True, True)
-    
-    def test_features_ground(self):
-        sample = (asl.df.ix[98, 1][features_ground]).tolist()
-        self.assertEqual(sample, [9, 113, -12, 119])
-
-    def test_features_norm(self):
-        sample = (asl.df.ix[98, 1][features_norm]).tolist()
-        np.testing.assert_almost_equal(sample, [ 1.153,  1.663, -0.891,  0.742], 3)
-
-    def test_features_polar(self):
-        sample = (asl.df.ix[98,1][features_polar]).tolist()
-        np.testing.assert_almost_equal(sample, [113.3578, 0.0794, 119.603, -0.1005], 3)
-
-    def test_features_delta(self):
-        sample = (asl.df.ix[98, 0][features_delta]).tolist()
-        self.assertEqual(sample, [0, 0, 0, 0])
-        sample = (asl.df.ix[98, 18][features_delta]).tolist()
-        self.assertTrue(sample in [[-16, -5, -2, 4], [-14, -9, 0, 0]], "Sample value found was {}".format(sample))
-                         
-suite = unittest.TestLoader().loadTestsFromModule(TestFeatures())
-unittest.TextTestRunner().run(suite)
-
-"""
 
 
