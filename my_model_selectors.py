@@ -143,10 +143,6 @@ class SelectorCV(ModelSelector):
             train_X, train_L = combine_sequences(train_IDs, self.sequences)
             tests_X, tests_L = combine_sequences(tests_IDs, self.sequences)
             
-            if self.verbose:
-                print_X_and_L(train_X, train_L, "Train on:")
-                print_X_and_L(tests_X, tests_L, "Tests on:")
-            
             for p in range(self.min_n_components, self.max_n_components):
                 model = self.base_model(p, train_X, train_L)
                 score = model.score(tests_X, tests_L)

@@ -8,11 +8,13 @@ import numpy as np
 from asl_data import AslDb
 from asl_utils import print_sequences
 from asl_utils import show_model_stats
+from asl_utils import train_all_words
 import warnings
 import timeit
 from hmmlearn.hmm import GaussianHMM
 from my_model_selectors import (SelectorConstant, SelectorCV, SelectorDIC, SelectorBIC)
 from sklearn.model_selection import KFold
+from my_recognizer import recognize
 
 
 
@@ -105,9 +107,39 @@ def train_with_selector(words_to_train, features, training_set, selector_class, 
 
 print("Top rows of data:\n\n{}".format(asl.df.head()))
 
-test_word = 'BOOK'
-test_features = features_ground
+test_word         = 'BOOK'
+test_features     = features_ground
 test_training_set = asl.build_training(features_ground)
+test_testing_set  = asl.build_test(features_ground)
+test_models       = train_all_words(test_training_set, SelectorBIC)
+
+probabilities, guesses = recognize(test_models, test_testing_set)
+
+
+
+#  TODO:  This needs to include some error-handling in case training fails
+#  entirely on certain words.
+
+print("\nPERFORMING RECOGNITION PASS...")
+word_ID  = 0
+num_hits = 0
+num_miss = 0
+
+for word in test_testing_set.wordlist:
+    
+    guess = guesses      [word_ID]
+    prob  = probabilities[word_ID]
+    print("  Guess for", word, "is", guess, "log. prob:", prob)
+    
+    if guess == word: num_hits += 1
+    else:             num_miss += 1
+    word_ID += 1
+
+
+accuracy = (100 * num_hits) / (num_hits + num_miss)
+
+print("\nACCURACY: {}%".format(accuracy))
+
 
 """
 test_word_X, test_word_lengths = test_training_set.get_word_Xlengths(test_word)
@@ -123,12 +155,22 @@ for cv_train_idx, cv_test_idx in KFold().split(word_sequences):
     print("Train fold indices:{} Test fold indices:{}".format(cv_train_idx, cv_test_idx))
 """
 
+"""
 #  The difference between test_word_X and word_sequences is that the latter
 #  simply nests each sequence within it's own array, rather than munging them
 #  together and tacking on the lengths afterward.
 
-train_with_selector([test_word], test_features, test_training_set, SelectorBIC, False)
-train_with_selector([test_word], test_features, test_training_set, SelectorDIC, False)
-train_with_selector([test_word], test_features, test_training_set, SelectorCV , False)
+train_with_selector([test_word], test_features, test_training_set, SelectorBIC, True )
+train_with_selector([test_word], test_features, test_training_set, SelectorDIC, True )
+train_with_selector([test_word], test_features, test_training_set, SelectorCV , True )
+"""
+
+
+
+
+
+
+
+
 
 
