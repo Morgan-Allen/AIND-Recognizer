@@ -36,7 +36,7 @@ class ModelSelector(object):
         self.random_state     = random_state
         self.verbose          = verbose
     
-    def base_model(self, num_states, sequences, lengths = None):
+    def base_model(self, num_states, sequences = self.X, lengths = None):
         # with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=DeprecationWarning)
         # warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -57,9 +57,6 @@ class ModelSelector(object):
             if self.verbose:
                 print("failure on {} with {} states".format(self.this_word, num_states))
             return None
-    
-    def base_model(self, num_states):
-        return self.base_model(num_states, self.X, self.lengths)
     
     def select(self):
         picked = None
@@ -113,13 +110,19 @@ class SelectorDIC(ModelSelector):
     DIC = log(P(X(i)) - 1/(M-1)SUM(log(P(X(all but i))
     '''
     def score_model(self, model):
-        # TODO implement model selection based on DIC scores
+        self_score = model.score(self.X, self.lengths)
+        sum_other_scores = 0
         
-        raise NotImplementedError
+        for word in self.hwords.keys():
+            if word == self.this_word: continue
+            X, lengths = self.hwords[word]
+            sum_other_scores += model.score(X, lengths)
+        
+        return self_score - (sum_other_scores / (len(self.hwords) - 1))
 
 
 class SelectorCV(ModelSelector):
-    ''' select best model based on average log Likelihood of cross-validation folds
+    ''' select best model based on average log Likelihood of cross-validation folds.
     '''
     
     def select(self):
