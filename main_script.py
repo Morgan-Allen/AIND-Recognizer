@@ -127,7 +127,8 @@ for cv_train_idx, cv_test_idx in KFold().split(word_sequences):
 #  simply nests each sequence within it's own array, rather than munging them
 #  together and tacking on the lengths afterward.
 
-train_with_selector([test_word], test_features, test_training_set, SelectorCV, True)
-
+train_with_selector([test_word], test_features, test_training_set, SelectorBIC, False)
+train_with_selector([test_word], test_features, test_training_set, SelectorDIC, False)
+train_with_selector([test_word], test_features, test_training_set, SelectorCV , False)
 
 

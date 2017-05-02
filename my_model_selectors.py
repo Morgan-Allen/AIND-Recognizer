@@ -75,6 +75,9 @@ class ModelSelector(object):
                 picked = model
                 best_score = score
         
+        if self.verbose:
+            show_model_stats(self.this_word, picked, self.features)
+        
         return picked
     
     def score_model(self, model):
@@ -100,10 +103,10 @@ class SelectorBIC(ModelSelector):
     Bayesian information criteria: BIC = -2 * logL + p * logN
     """
     def score_model(self, model):
-        #  TODO:  This part isn't correct at all- the overall complexity is
-        #  much larger?  See the discussion thread.
+        num_S, num_F = model.n_components, len(model.means_[0])
+        num_params = (num_S - 1) + (num_S * (num_S - 1)) + (2 * num_S * num_F)
         acc_bonus   = -2 * model.score(self.X, self.lengths)
-        len_penalty = model.n_components * math.log(self.lengths)
+        len_penalty = num_params * math.log(len(self.lengths))
         return acc_bonus + len_penalty
 
 
@@ -124,7 +127,7 @@ class SelectorDIC(ModelSelector):
             X, lengths = self.hwords[word]
             sum_other_scores += model.score(X, lengths)
         
-        return self_score - (sum_other_scores / (len(self.hwords) - 1))
+        return (sum_other_scores / (len(self.hwords) - 1)) - self_score
 
 
 class SelectorCV(ModelSelector):
