@@ -69,11 +69,15 @@ class ModelSelector(object):
         best_score = float("inf")
         
         for p in range(self.min_n_components, self.max_n_components):
-            model = self.base_model(p)
-            score = self.score_model(model)
-            if score < best_score:
-                picked = model
-                best_score = score
+            try:
+                model = self.base_model(p)
+                score = self.score_model(model)
+                if score < best_score:
+                    picked = model
+                    best_score = score
+            except Exception as e:
+                print("Selection problem:", e, "for", self.this_word)
+                continue
         
         if self.verbose:
             show_model_stats(self.this_word, picked, self.features)
@@ -144,12 +148,16 @@ class SelectorCV(ModelSelector):
             tests_X, tests_L = combine_sequences(tests_IDs, self.sequences)
             
             for p in range(self.min_n_components, self.max_n_components):
-                model = self.base_model(p, train_X, train_L)
-                score = model.score(tests_X, tests_L)
-                
-                if score > best_score:
-                    picked     = model
-                    best_score = score
+                try:
+                    model = self.base_model(p, train_X, train_L)
+                    score = model.score(tests_X, tests_L)
+                    
+                    if score > best_score:
+                        picked     = model
+                        best_score = score
+                except Exception as e:
+                    print("Selection problem:", e, "for", self.this_word)
+                    continue
         
         if self.verbose:
             show_model_stats(self.this_word, picked, self.features)

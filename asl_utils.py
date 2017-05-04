@@ -61,6 +61,9 @@ def print_X_and_L(seq_X, seq_L, intro=""):
 
 
 def show_model_stats(word, model, features):
+    if model == None:
+        print("No model found!")
+        return
     print("Number of states trained in model for {} is {}".format(word, model.n_components))
     variance=np.array([np.diag(model.covars_[i]) for i in range(model.n_components)])
     for i in range(model.n_components):  # for each hidden state

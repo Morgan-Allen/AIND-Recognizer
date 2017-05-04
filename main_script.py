@@ -14,6 +14,7 @@ import timeit
 from hmmlearn.hmm import GaussianHMM
 from my_model_selectors import (SelectorConstant, SelectorCV, SelectorDIC, SelectorBIC)
 from sklearn.model_selection import KFold
+from my_recognizer import recognize_words
 from my_recognizer import recognize
 
 
@@ -111,9 +112,11 @@ test_word         = 'BOOK'
 test_features     = features_ground
 test_training_set = asl.build_training(features_ground)
 test_testing_set  = asl.build_test(features_ground)
+#test_words        = test_testing_set.wordlist
+test_words        = ['BOOK', 'LOVE', 'LIKE', 'JOHN']
 test_models       = train_all_words(test_training_set, SelectorBIC)
 
-probabilities, guesses = recognize(test_models, test_testing_set)
+probabilities, guesses = recognize_words(test_models, test_testing_set, test_words)
 
 
 
@@ -121,11 +124,11 @@ probabilities, guesses = recognize(test_models, test_testing_set)
 #  entirely on certain words.
 
 print("\nPERFORMING RECOGNITION PASS...")
-word_ID  = 0
-num_hits = 0
-num_miss = 0
+word_ID   = 0
+num_hits  = 0
+num_miss  = 0
 
-for word in test_testing_set.wordlist:
+for word in test_words:
     
     guess = guesses      [word_ID]
     prob  = probabilities[word_ID]
@@ -164,13 +167,3 @@ train_with_selector([test_word], test_features, test_training_set, SelectorBIC, 
 train_with_selector([test_word], test_features, test_training_set, SelectorDIC, True )
 train_with_selector([test_word], test_features, test_training_set, SelectorCV , True )
 """
-
-
-
-
-
-
-
-
-
-
