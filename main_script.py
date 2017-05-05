@@ -15,7 +15,7 @@ from hmmlearn.hmm import GaussianHMM
 from my_model_selectors import (SelectorConstant, SelectorCV, SelectorDIC, SelectorBIC)
 from sklearn.model_selection import KFold
 from my_recognizer import recognize_words
-from my_recognizer import recognize
+from my_recognizer import report_recognize_results
 
 
 
@@ -113,35 +113,13 @@ test_features     = features_ground
 test_training_set = asl.build_training(features_ground)
 test_testing_set  = asl.build_test(features_ground)
 #test_words        = test_testing_set.wordlist
-test_words        = ['BOOK', 'LOVE', 'LIKE', 'JOHN']
-test_models       = train_all_words(test_training_set, SelectorBIC)
+#test_words        = ['BOOK', 'LOVE', 'LIKE', 'JOHN']
+test_words        = ['FISH', 'BOOK', 'VEGETABLE', 'FUTURE', 'JOHN']
+test_models       = train_all_words(test_training_set, SelectorBIC, test_words)
 
 probabilities, guesses = recognize_words(test_models, test_testing_set, test_words)
+report_recognize_results(probabilities, guesses, test_words)
 
-
-
-#  TODO:  This needs to include some error-handling in case training fails
-#  entirely on certain words.
-
-print("\nPERFORMING RECOGNITION PASS...")
-word_ID   = 0
-num_hits  = 0
-num_miss  = 0
-
-for word in test_words:
-    
-    guess = guesses      [word_ID]
-    prob  = probabilities[word_ID]
-    print("  Guess for", word, "is", guess, "log. prob:", prob)
-    
-    if guess == word: num_hits += 1
-    else:             num_miss += 1
-    word_ID += 1
-
-
-accuracy = (100 * num_hits) / (num_hits + num_miss)
-
-print("\nACCURACY: {}%".format(accuracy))
 
 
 """

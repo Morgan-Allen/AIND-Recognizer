@@ -79,10 +79,17 @@ class ModelSelector(object):
                 print("Selection problem:", e, "for", self.this_word)
                 continue
         
-        if self.verbose:
-            show_model_stats(self.this_word, picked, self.features)
-        
+        self.report_selection(picked)
         return picked
+    
+    def report_selection(self, model):
+        word = self.this_word
+        if self.verbose:
+            show_model_stats(word, model, self.features)
+        if model is not None:
+            print("Training complete for {} with {} states".format(word, model.n_components))
+        else:
+            print("Training failed for {}".format(word))
     
     def score_model(self, model):
         raise NotImplementedError
@@ -139,9 +146,12 @@ class SelectorCV(ModelSelector):
     '''
     
     def select(self):
-        split      = KFold().split(self.sequences)
+        split      = None
         picked     = None
         best_score = float("-inf")
+        
+        if len(self.sequences) <= 2: split = ([0, 1], [0, 1])
+        else:                        split = KFold().split(self.sequences)
         
         for train_IDs, tests_IDs in split:
             train_X, train_L = combine_sequences(train_IDs, self.sequences)
@@ -159,9 +169,7 @@ class SelectorCV(ModelSelector):
                     print("Selection problem:", e, "for", self.this_word)
                     continue
         
-        if self.verbose:
-            show_model_stats(self.this_word, picked, self.features)
-        
+        self.report_selection(picked)
         return picked
 
 

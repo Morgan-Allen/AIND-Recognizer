@@ -79,20 +79,20 @@ def getKey(item):
     return item[1]
 
 
-def train_all_words(training: WordsData, model_selector):
+def train_all_words(training: WordsData, model_selector, word_list = None):
     """ train all words given a training set and selector
 
     :param training: WordsData object (training set)
     :param model_selector: class (subclassed from ModelSelector)
     :return: dict of models keyed by word
     """
-    sequences = training.get_all_sequences()
-    Xlengths = training.get_all_Xlengths()
+    sequences  = training.get_all_sequences()
+    Xlengths   = training.get_all_Xlengths()
     model_dict = {}
-    for word in training.words:
-        model = model_selector(sequences, Xlengths, word,
-                               n_constant=3).select()
-        model_dict[word] = model
+    if word_list == None: word_list = training.words
+    for word in word_list:
+        model = model_selector(sequences, Xlengths, word, n_constant = 3)
+        model_dict[word] = model.select()
     return model_dict
 
 
