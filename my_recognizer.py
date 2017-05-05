@@ -43,10 +43,12 @@ def recognize_words(models: dict, test_set: SinglesData, word_list):
                 if score > best_score:
                     best_score = score
                     best_guess = word
+            
         except Exception as e:
             print("Recognition error:", e)
             pass
         
+        print("  Best guess:", best_guess, "Score:", best_score)
         probabilities.append(best_score)
         guesses      .append(best_guess)
     

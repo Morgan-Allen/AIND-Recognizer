@@ -91,8 +91,11 @@ def train_all_words(training: WordsData, model_selector, word_list = None):
     model_dict = {}
     if word_list == None: word_list = training.words
     for word in word_list:
-        model = model_selector(sequences, Xlengths, word, n_constant = 3)
-        model_dict[word] = model.select()
+        try:
+            model = model_selector(sequences, Xlengths, word, n_constant = 3)
+            model_dict[word] = model.select()
+        except:
+            model_dict[word] = None
     return model_dict
 
 

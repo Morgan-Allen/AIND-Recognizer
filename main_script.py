@@ -112,14 +112,13 @@ test_word         = 'BOOK'
 test_features     = features_ground
 test_training_set = asl.build_training(features_ground)
 test_testing_set  = asl.build_test(features_ground)
-#test_words        = test_testing_set.wordlist
-#test_words        = ['BOOK', 'LOVE', 'LIKE', 'JOHN']
-test_words        = ['FISH', 'BOOK', 'VEGETABLE', 'FUTURE', 'JOHN']
-test_models       = train_all_words(test_training_set, SelectorBIC, test_words)
+train_words       = test_training_set.words
+test_words        = test_testing_set.wordlist
+#alt_words        = ['FISH', 'BOOK', 'VEGETABLE', 'FUTURE', 'JOHN']
+test_models       = train_all_words(test_training_set, SelectorBIC, train_words)
 
 probabilities, guesses = recognize_words(test_models, test_testing_set, test_words)
 report_recognize_results(probabilities, guesses, test_words)
-
 
 
 """
