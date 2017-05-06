@@ -30,27 +30,32 @@ def recognize_words(models: dict, test_set: SinglesData, word_list, verbose = Fa
     for word_id in word_list:
         best_score = float("-inf")
         best_guess = None
+        all_probs  = {}
         
         if verbose: print("Attempting to recognise", word_id)
         try:
             index = test_set.wordlist.index(word_id)
             word_X, word_L = test_set.get_item_Xlengths(index)
             for word in models.keys():
-                model = models[word]
-                if model == None: continue
-                score = model.score(word_X, word_L)
-                if verbose: print("  Score for", word, "is", score)
+                score = float("-inf")
+                try:
+                    model = models[word]
+                    score = model.score(word_X, word_L)
+                except Exception as e:
+                    if verbose: print("Recognition error:", e, "for", word, "in", word_id)
                 
+                all_probs[word] = score
+                if verbose: print("  Score for", word, "is", score)
                 if score > best_score:
                     best_score = score
                     best_guess = word
-            
+                
         except Exception as e:
-            print("Recognition error:", e)
+            if verbose: print("Recognition error:", e, "for", word_id)
             pass
         
         if verbose: print("  Best guess:", best_guess, "Score:", best_score)
-        probabilities.append(best_score)
+        probabilities.append(all_probs )
         guesses      .append(best_guess)
     
     return probabilities, guesses

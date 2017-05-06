@@ -86,7 +86,7 @@ def report_recognize_results(probabilities, guesses, word_list):
     
     for word in word_list:
         guess = guesses      [word_ID]
-        prob  = probabilities[word_ID]
+        prob  = probabilities[word_ID][guess]
         print("  Guess for", word, "is", guess, "log. prob:", prob)
         
         if guess == word: num_hits += 1

@@ -61,15 +61,16 @@ print("Top rows of data:\n\n{}".format(asl.df.head()))
 train_features = features_ground
 training_set   = asl.build_training(train_features)
 testing_set    = asl.build_test    (train_features)
-train_words    = training_set.words
-#train_words    = ['FISH', 'BOOK', 'VEGETABLE', 'FUTURE', 'JOHN']
-test_words     = testing_set.wordlist
-#test_words     = ['FISH', 'BOOK', 'VEGETABLE', 'FUTURE', 'JOHN']
+#train_words    = training_set.words
+train_words    = ['FISH', 'BOOK', 'VEGETABLE', 'FUTURE', 'JOHN']
+#test_words     = testing_set.wordlist
+test_words     = ['FISH', 'BOOK', 'VEGETABLE', 'FUTURE', 'JOHN']
 
-perform_recognizer_pass(training_set, testing_set, SelectorConstant, train_words, test_words)
+#perform_recognizer_pass(training_set, testing_set, SelectorConstant, train_words, test_words)
 perform_recognizer_pass(training_set, testing_set, SelectorBIC     , train_words, test_words)
-perform_recognizer_pass(training_set, testing_set, SelectorDIC     , train_words, test_words)
-perform_recognizer_pass(training_set, testing_set, SelectorCV      , train_words, test_words)
+#perform_recognizer_pass(training_set, testing_set, SelectorDIC     , train_words, test_words)
+#perform_recognizer_pass(training_set, testing_set, SelectorCV      , train_words, test_words)
+
 
 
 
