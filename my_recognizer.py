@@ -1,5 +1,6 @@
 import warnings
-from asl_data import SinglesData
+from asl_data import WordsData, SinglesData
+from asl_utils import train_all_words, report_recognize_results
 
 
 """
@@ -55,24 +56,20 @@ def recognize_words(models: dict, test_set: SinglesData, word_list):
     return probabilities, guesses
 
 
-def report_recognize_results(probabilities, guesses, word_list):
-    print("\n\nPERFORMED RECOGNITION PASS...")
-    word_ID   = 0
-    num_hits  = 0
-    num_miss  = 0
+def perform_recognizer_pass(
+    training_set: WordsData,
+    testing_set: SinglesData,
+    model_selector,
+    train_words = None,
+    test_words = None,
+    verbose = False,
+    features = []
+):
+    models_dict = train_all_words(training_set, model_selector, train_words, verbose, features)
+    if test_words == None: test_words = testing_set.wordlist
     
-    for word in word_list:
-        guess = guesses      [word_ID]
-        prob  = probabilities[word_ID]
-        print("  Guess for", word, "is", guess, "log. prob:", prob)
-        
-        if guess == word: num_hits += 1
-        else:             num_miss += 1
-        word_ID += 1
-    
-    accuracy = (100 * num_hits) / (num_hits + num_miss)
-    print("\nACCURACY: {}%".format(accuracy))
-
+    probabilities, guesses = recognize_words(models_dict, testing_set, test_words)
+    report_recognize_results(probabilities, guesses, test_words)
 
 
 

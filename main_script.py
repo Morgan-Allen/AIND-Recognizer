@@ -6,17 +6,8 @@ Created on Sun Apr 30 18:11:14 2017
 
 import numpy as np
 from asl_data import AslDb
-from asl_utils import print_sequences
-from asl_utils import show_model_stats
-from asl_utils import train_all_words
-import warnings
-import timeit
-from hmmlearn.hmm import GaussianHMM
 from my_model_selectors import (SelectorConstant, SelectorCV, SelectorDIC, SelectorBIC)
-from sklearn.model_selection import KFold
-from my_recognizer import recognize_words
-from my_recognizer import report_recognize_results
-
+from my_recognizer import perform_recognizer_pass
 
 
 # initializes the database
@@ -65,82 +56,22 @@ for i, feature in feature_index:
 
 
 
-#  NOTE:  The model will compute covariance between each of it's internal component-dimensions
-#  and all the features (though often you'll only be looking for a match between the [i]th
-#  feature and the i[th] dimension, as by default.)  The covariance is stored in matrix form,
-#  With i-to-i covariance stored along the diagonal.
-
-def train_a_word(word, num_hidden_states, training_set):
-    warnings.filterwarnings("ignore", category=DeprecationWarning)
-    X, lengths = training_set.get_word_Xlengths(word)
-    model      = GaussianHMM(n_components = num_hidden_states, n_iter = 1000).fit(X, lengths)
-    logL       = model.score(X, lengths)
-    return model, logL
-
-def train_and_show_model_stats(word, num_states, features, training_set):
-    model, logL = train_a_word(word, num_states, training_set)
-    show_model_stats(word, model, features)
-    return model, logL
-
-def train_with_selector(words_to_train, features, training_set, selector_class, verbose):
-    sequences = training_set.get_all_sequences()
-    Xlengths  = training_set.get_all_Xlengths ()
-    
-    for word in words_to_train:
-        start = timeit.default_timer()
-        model = selector_class(
-            sequences,
-            Xlengths,
-            word,
-            min_n_components = 2,
-            max_n_components = 15,
-            random_state     = 14,
-            verbose          = verbose,
-            features         = features
-        ).select()
-        end = timeit.default_timer()-start
-        if model is not None:
-            print("Training complete for {} with {} states with time {} seconds".format(word, model.n_components, end))
-        else:
-            print("Training failed for {}".format(word))
-
-
-
 print("Top rows of data:\n\n{}".format(asl.df.head()))
 
-test_word         = 'BOOK'
-test_features     = features_ground
-test_training_set = asl.build_training(features_ground)
-test_testing_set  = asl.build_test(features_ground)
-train_words       = test_training_set.words
-test_words        = test_testing_set.wordlist
-#alt_words        = ['FISH', 'BOOK', 'VEGETABLE', 'FUTURE', 'JOHN']
-test_models       = train_all_words(test_training_set, SelectorBIC, train_words)
+train_features = features_ground
+training_set   = asl.build_training(train_features)
+testing_set    = asl.build_test    (train_features)
+train_words    = training_set.words
+#train_words    = ['FISH', 'BOOK', 'VEGETABLE', 'FUTURE', 'JOHN']
+test_words     = testing_set.wordlist
+#test_words     = ['FISH', 'BOOK', 'VEGETABLE', 'FUTURE', 'JOHN']
 
-probabilities, guesses = recognize_words(test_models, test_testing_set, test_words)
-report_recognize_results(probabilities, guesses, test_words)
+perform_recognizer_pass(training_set, testing_set, SelectorConstant, train_words, test_words)
+perform_recognizer_pass(training_set, testing_set, SelectorBIC     , train_words, test_words)
+perform_recognizer_pass(training_set, testing_set, SelectorDIC     , train_words, test_words)
+perform_recognizer_pass(training_set, testing_set, SelectorCV      , train_words, test_words)
 
 
-"""
-test_word_X, test_word_lengths = test_training_set.get_word_Xlengths(test_word)
-print("\n\nData on", test_word, "is:\n{}{}\n".format(test_word_X, test_word_lengths))
 
-train_and_show_model_stats(test_word, 3, features_ground, test_training_set)
 
-word_sequences = test_training_set.get_word_sequences(test_word)
-print("\n\nWord sequences:")
-print_sequences(word_sequences)
 
-for cv_train_idx, cv_test_idx in KFold().split(word_sequences):
-    print("Train fold indices:{} Test fold indices:{}".format(cv_train_idx, cv_test_idx))
-"""
-
-"""
-#  The difference between test_word_X and word_sequences is that the latter
-#  simply nests each sequence within it's own array, rather than munging them
-#  together and tacking on the lengths afterward.
-
-train_with_selector([test_word], test_features, test_training_set, SelectorBIC, True )
-train_with_selector([test_word], test_features, test_training_set, SelectorDIC, True )
-train_with_selector([test_word], test_features, test_training_set, SelectorCV , True )
-"""

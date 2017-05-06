@@ -144,33 +144,25 @@ class SelectorDIC(ModelSelector):
 class SelectorCV(ModelSelector):
     ''' select best model based on average log Likelihood of cross-validation folds.
     '''
+    split = None
     
-    def select(self):
-        split      = None
-        picked     = None
-        best_score = float("-inf")
+    def score_model(self, model):
+        if self.split == None:
+            if   len(self.sequences) == 1: self.split = [([0], [0])]
+            elif len(self.sequences) == 2: self.split = [([0], [1]), ([1], [0])]
+            else:                          self.split = KFold().split(self.sequences)
         
-        if len(self.sequences) <= 2: split = ([0, 1], [0, 1])
-        else:                        split = KFold().split(self.sequences)
-        
-        for train_IDs, tests_IDs in split:
+        sum_scores = 0
+        num_scored = 0
+        for train_IDs, tests_IDs in self.split:
             train_X, train_L = combine_sequences(train_IDs, self.sequences)
             tests_X, tests_L = combine_sequences(tests_IDs, self.sequences)
             
-            for p in range(self.min_n_components, self.max_n_components):
-                try:
-                    model = self.base_model(p, train_X, train_L)
-                    score = model.score(tests_X, tests_L)
-                    
-                    if score > best_score:
-                        picked     = model
-                        best_score = score
-                except Exception as e:
-                    print("Selection problem:", e, "for", self.this_word)
-                    continue
+            slice_model = self.base_model(model.n_components, train_X, train_L)
+            sum_scores += slice_model.score(tests_X, tests_L)
+            num_scored += 1
         
-        self.report_selection(picked)
-        return picked
+        return sum_scores / num_scored
 
 
 
