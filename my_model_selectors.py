@@ -150,17 +150,17 @@ class SelectorCV(ModelSelector):
         if self.split == None:
             if   len(self.sequences) == 1: self.split = [([0], [0])]
             elif len(self.sequences) == 2: self.split = [([0], [1]), ([1], [0])]
-            else:                          self.split = KFold().split(self.sequences)
+            else:                          self.split = [i for i in KFold().split(self.sequences)]
         
         sum_scores = 0
         num_scored = 0
         for train_IDs, tests_IDs in self.split:
+            num_scored += 1
             train_X, train_L = combine_sequences(train_IDs, self.sequences)
             tests_X, tests_L = combine_sequences(tests_IDs, self.sequences)
             
             slice_model = self.base_model(model.n_components, train_X, train_L)
             sum_scores += slice_model.score(tests_X, tests_L)
-            num_scored += 1
         
         return sum_scores / num_scored
 

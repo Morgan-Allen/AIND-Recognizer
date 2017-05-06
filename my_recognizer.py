@@ -22,7 +22,7 @@ def recognize(models: dict, test_set: SinglesData):
     return recognize_words(models, test_set, test_set.wordlist)
 
 
-def recognize_words(models: dict, test_set: SinglesData, word_list):
+def recognize_words(models: dict, test_set: SinglesData, word_list, verbose = False):
     warnings.filterwarnings("ignore", category=DeprecationWarning)
     probabilities = []
     guesses       = []
@@ -31,7 +31,7 @@ def recognize_words(models: dict, test_set: SinglesData, word_list):
         best_score = float("-inf")
         best_guess = None
         
-        print("Attempting to recognise", word_id)
+        if verbose: print("Attempting to recognise", word_id)
         try:
             index = test_set.wordlist.index(word_id)
             word_X, word_L = test_set.get_item_Xlengths(index)
@@ -39,7 +39,7 @@ def recognize_words(models: dict, test_set: SinglesData, word_list):
                 model = models[word]
                 if model == None: continue
                 score = model.score(word_X, word_L)
-                print("  Score for", word, "is", score)
+                if verbose: print("  Score for", word, "is", score)
                 
                 if score > best_score:
                     best_score = score
@@ -49,7 +49,7 @@ def recognize_words(models: dict, test_set: SinglesData, word_list):
             print("Recognition error:", e)
             pass
         
-        print("  Best guess:", best_guess, "Score:", best_score)
+        if verbose: print("  Best guess:", best_guess, "Score:", best_score)
         probabilities.append(best_score)
         guesses      .append(best_guess)
     
@@ -68,7 +68,7 @@ def perform_recognizer_pass(
     models_dict = train_all_words(training_set, model_selector, train_words, verbose, features)
     if test_words == None: test_words = testing_set.wordlist
     
-    probabilities, guesses = recognize_words(models_dict, testing_set, test_words)
+    probabilities, guesses = recognize_words(models_dict, testing_set, test_words, verbose)
     report_recognize_results(probabilities, guesses, test_words)
 
 
