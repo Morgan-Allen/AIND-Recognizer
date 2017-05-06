@@ -1,6 +1,7 @@
+
 import warnings
 from asl_data import WordsData, SinglesData
-from asl_utils import train_all_words, report_recognize_results
+from asl_utils import train_all_words
 
 
 """
@@ -32,7 +33,7 @@ def recognize_words(models: dict, test_set: SinglesData, word_list, verbose = Fa
         best_guess = None
         all_probs  = {}
         
-        if verbose: print("Attempting to recognise", word_id)
+        if verbose: print("  Attempting to recognise", word_id)
         try:
             index = test_set.wordlist.index(word_id)
             word_X, word_L = test_set.get_item_Xlengths(index)
@@ -42,7 +43,7 @@ def recognize_words(models: dict, test_set: SinglesData, word_list, verbose = Fa
                     model = models[word]
                     score = model.score(word_X, word_L)
                 except Exception as e:
-                    if verbose: print("Recognition error:", e, "for", word, "in", word_id)
+                    if verbose: print("  Recognition error:", e, "for", word, "in", word_id)
                 
                 all_probs[word] = score
                 if verbose: print("  Score for", word, "is", score)
@@ -51,7 +52,7 @@ def recognize_words(models: dict, test_set: SinglesData, word_list, verbose = Fa
                     best_guess = word
                 
         except Exception as e:
-            if verbose: print("Recognition error:", e, "for", word_id)
+            if verbose: print("  Recognition error:", e, "for", word_id)
             pass
         
         if verbose: print("  Best guess:", best_guess, "Score:", best_score)
@@ -70,11 +71,30 @@ def perform_recognizer_pass(
     verbose = False,
     features = []
 ):
+    print("\n\nPERFORMING RECOGNITION PASS...")
+    
     models_dict = train_all_words(training_set, model_selector, train_words, verbose, features)
     if test_words == None: test_words = testing_set.wordlist
-    
     probabilities, guesses = recognize_words(models_dict, testing_set, test_words, verbose)
-    report_recognize_results(probabilities, guesses, test_words)
+    
+    word_ID  = 0
+    num_hits = 0
+    num_miss = 0
+    
+    for word in test_words:
+        guess = guesses      [word_ID]
+        prob  = probabilities[word_ID][guess]
+        print("  Guess for", word, "is", guess, "log. prob:", prob)
+        
+        if guess == word: num_hits += 1
+        else:             num_miss += 1
+        word_ID += 1
+    
+    accuracy = (100 * num_hits) / (num_hits + num_miss)
+    print("\n  FEATURES ARE:", features      )
+    print("  SELECTOR IS: ", model_selector)
+    print("  ACCURACY: {}%".format(accuracy))
+
 
 
 

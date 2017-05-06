@@ -78,24 +78,6 @@ def show_model_stats(word, model, features):
         print("trans %    = ", [int(p * 100) for p in model.transmat_[i]])
         print()
 
-def report_recognize_results(probabilities, guesses, word_list):
-    print("\n\nPERFORMED RECOGNITION PASS...")
-    word_ID   = 0
-    num_hits  = 0
-    num_miss  = 0
-    
-    for word in word_list:
-        guess = guesses      [word_ID]
-        prob  = probabilities[word_ID][guess]
-        print("  Guess for", word, "is", guess, "log. prob:", prob)
-        
-        if guess == word: num_hits += 1
-        else:             num_miss += 1
-        word_ID += 1
-    
-    accuracy = (100 * num_hits) / (num_hits + num_miss)
-    print("\nACCURACY: {}%".format(accuracy))
-
 def putHTML(color, msg):
     source = """<font color={}>{}</font><br/>""".format(color, msg)
     return HTML(source)

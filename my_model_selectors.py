@@ -57,11 +57,11 @@ class ModelSelector(object):
             if lengths != None: model.fit(sequences, lengths)
             else:               model.fit(sequences)
             if self.verbose:
-                print("model created for {} with {} states".format(self.this_word, num_states))
+                print("  model created for {} with {} states".format(self.this_word, num_states))
             return model
         except:
             if self.verbose:
-                print("failure on {} with {} states".format(self.this_word, num_states))
+                print("  failure on {} with {} states".format(self.this_word, num_states))
             return None
     
     def select(self):
@@ -76,7 +76,7 @@ class ModelSelector(object):
                     picked = model
                     best_score = score
             except Exception as e:
-                print("Selection problem:", e, "for", self.this_word)
+                print("  Selection problem:", e, "for", self.this_word)
                 continue
         
         self.report_selection(picked)
@@ -87,9 +87,9 @@ class ModelSelector(object):
         if self.verbose:
             show_model_stats(word, model, self.features)
         if model is not None:
-            print("Training complete for {} with {} states".format(word, model.n_components))
+            print("  Training complete for {} with {} states".format(word, model.n_components))
         else:
-            print("Training failed for {}".format(word))
+            print("  Training failed for {}".format(word))
     
     def score_model(self, model):
         raise NotImplementedError
