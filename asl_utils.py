@@ -1,9 +1,9 @@
+
 from asl_data import SinglesData, WordsData
 import numpy as np
 from IPython.core.display import display, HTML
 from hmmlearn.hmm import GaussianHMM
 import warnings
-import timeit
 
 
 RAW_FEATURES = ['left-x', 'left-y', 'right-x', 'right-y']
@@ -63,21 +63,6 @@ def print_X_and_L(seq_X, seq_L, intro=""):
         print("  ]")
     print("]")
 
-
-def show_model_stats(word, model, features):
-    if model == None:
-        print("No model found!")
-        return
-    print("Number of states trained in model for {} is {}".format(word, model.n_components))
-    variance=np.array([np.diag(model.covars_[i]) for i in range(model.n_components)])
-    for i in range(model.n_components):  # for each hidden state
-        print("hidden state #{}".format(i))
-        print("features   = ", features)
-        print("mean       = ", model.means_[i])
-        print("variance   = ", variance[i])
-        print("trans %    = ", [int(p * 100) for p in model.transmat_[i]])
-        print()
-
 def putHTML(color, msg):
     source = """<font color={}>{}</font><br/>""".format(color, msg)
     return HTML(source)
@@ -115,43 +100,6 @@ def train_a_word(word, num_hidden_states, training_set):
     model      = GaussianHMM(n_components = num_hidden_states, n_iter = 1000).fit(X, lengths)
     logL       = model.score(X, lengths)
     return model, logL
-
-def train_and_show_model_stats(word, num_states, features, training_set):
-    model, logL = train_a_word(word, num_states, training_set)
-    show_model_stats(word, model, features)
-    return model, logL
-
-def train_all_words(
-    training_set: WordsData,
-    model_selector,
-    word_list = None,
-    verbose   = False,
-    features  = []
-):
-    """
-    Train all words given a training set and selector
-    :param training: WordsData object (training set)
-    :param model_selector: class (subclassed from ModelSelector)
-    :return: dict of models keyed by word
-    """
-    sequences  = training_set.get_all_sequences()
-    Xlengths   = training_set.get_all_Xlengths()
-    model_dict = {}
-    if word_list == None: word_list = training_set.words
-    for word in word_list:
-        try:
-            start = timeit.default_timer()
-            model = model_selector(sequences, Xlengths, word, verbose = verbose, features = features).select()
-            model_dict[word] = model
-            end = timeit.default_timer()-start
-            if model is not None:
-                if verbose: print("Training complete for {} with {} states with time {} seconds".format(word, model.n_components, end))
-            else:
-                if verbose: print("Training failed for {}".format(word))
-        except Exception as e:
-            if verbose: print("Training failed for {}, error: {}".format(word, e))
-            model_dict[word] = None
-    return model_dict
 
 
 

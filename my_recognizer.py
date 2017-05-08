@@ -1,7 +1,7 @@
 
 import warnings
 from asl_data import WordsData, SinglesData
-from asl_utils import train_all_words
+import timeit
 
 
 """
@@ -60,6 +60,39 @@ def recognize_words(models: dict, test_set: SinglesData, word_list, verbose = Fa
         guesses      .append(best_guess)
     
     return probabilities, guesses
+
+
+def train_all_words(
+    training_set: WordsData,
+    model_selector,
+    word_list = None,
+    verbose   = False,
+    features  = []
+):
+    """
+    Train all words given a training set and selector
+    :param training: WordsData object (training set)
+    :param model_selector: class (subclassed from ModelSelector)
+    :return: dict of models keyed by word
+    """
+    sequences  = training_set.get_all_sequences()
+    Xlengths   = training_set.get_all_Xlengths()
+    model_dict = {}
+    if word_list == None: word_list = training_set.words
+    for word in word_list:
+        try:
+            start = timeit.default_timer()
+            model = model_selector(sequences, Xlengths, word, verbose = verbose, features = features).select()
+            model_dict[word] = model
+            end = timeit.default_timer()-start
+            if model is not None:
+                if verbose: print("Training complete for {} with {} states with time {} seconds".format(word, model.n_components, end))
+            else:
+                if verbose: print("Training failed for {}".format(word))
+        except Exception as e:
+            if verbose: print("Training failed for {}, error: {}".format(word, e))
+            model_dict[word] = None
+    return model_dict
 
 
 def perform_recognizer_pass(

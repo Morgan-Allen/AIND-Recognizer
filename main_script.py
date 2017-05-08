@@ -4,6 +4,7 @@ Created on Sun Apr 30 18:11:14 2017
 @author: morganallen
 """
 
+import warnings
 import numpy as np
 from asl_data import AslDb
 from my_model_selectors import (SelectorCV, SelectorDIC, SelectorBIC)
@@ -61,15 +62,18 @@ print("Top rows of data:\n\n{}".format(asl.df.head()))
 
 all_selectors = [SelectorBIC, SelectorDIC, SelectorCV]
 feature_sets  = [features_ground, features_polar, features_custom]
-#train_words    = training_set.words
-train_words    = ['FISH', 'BOOK', 'VEGETABLE', 'FUTURE', 'JOHN']
-#test_words     = testing_set.wordlist
-test_words     = ['FISH', 'BOOK', 'VEGETABLE', 'FUTURE', 'JOHN']
+
+
+warnings.filterwarnings("ignore")
 
 for feature_set in feature_sets:
     for selector in all_selectors:
         training_set   = asl.build_training(feature_set)
         testing_set    = asl.build_test    (feature_set)
+        train_words    = training_set.words
+        #train_words    = ['FISH', 'BOOK', 'VEGETABLE', 'FUTURE', 'JOHN']
+        test_words     = testing_set.wordlist
+        #test_words     = ['FISH', 'BOOK', 'VEGETABLE', 'FUTURE', 'JOHN']
         perform_recognizer_pass(training_set, testing_set, selector, train_words, test_words, features=feature_set)
 
 
