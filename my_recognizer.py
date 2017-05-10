@@ -187,18 +187,18 @@ def update_probabilities(
     
     for word in word_list:
         best_score = float("-inf")
-        best_guess = None
+        best_guess = guesses[word_ID]
         probs      = probabilities[word_ID]
         
         for guess in probs.keys():
-            word_sample = lang_model.get_sample(recent_words, guess)
-            lang_chance = lang_model.get_conditional_likelihood(word_sample)
-            score       = probs[word] + (math.log(lang_chance) * 10)
-            probs[word] = score
+            word_sample  = lang_model.get_sample(recent_words, guess)
+            lang_chance  = lang_model.get_conditional_likelihood(word_sample)
+            score        = probs[guess] + (math.log(lang_chance) * 1)
+            probs[guess] = score
             
             if score > best_score:
                 best_score = score
-                best_guess = word
+                best_guess = guess
         
         guesses[word_ID] = best_guess
         word_ID += 1
@@ -233,5 +233,7 @@ def report_recognizer_results(
     print("  LANGUAGE MODEL IS: ", lang_model)
     print("  SELECTOR IS: ", model_selector)
     print("  ACCURACY: {}%".format(accuracy))
+    
+    return accuracy
 
 

@@ -85,17 +85,17 @@ test_words     = testing_set.wordlist
 models_dict    = train_all_words(training_set, selector, train_words, verbose = False, features = feature_set)
 
 test_probs, test_guesses = recognize_words(models_dict, testing_set, test_words, verbose = False)
-report_recognizer_results(test_words, test_probs, test_guesses, selector, test_SLM, feature_set)
+acc_before = report_recognizer_results(test_words, test_probs, test_guesses, selector, test_SLM, feature_set)
 
 with open("recognizer_results/raw_results.txt", 'w') as file:
-    json.dump((test_probs, test_guesses), file)
+    json.dump((test_probs, test_guesses, test_words), file)
 
 test_probs, test_guesses = update_probabilities(test_words, test_probs, test_guesses, test_SLM)
-report_recognizer_results(test_words, test_probs, test_guesses, selector, test_SLM, feature_set)
+acc_after = report_recognizer_results(test_words, test_probs, test_guesses, selector, test_SLM, feature_set)
 
 with open("recognizer_results/SLM_results.txt", 'w') as file:
-    json.dump((test_probs, test_guesses), file)
+    json.dump((test_probs, test_guesses, test_words), file)
 
-
+print("\nAccuracy difference: {}%".format(acc_after - acc_before))
 
 

@@ -1,7 +1,7 @@
 
 
 import random
-from my_recognizer import BasicSLM
+from my_recognizer import BasicSLM, update_probabilities, report_recognizer_results
 import json
 
 
@@ -34,15 +34,17 @@ for word in sample_words:
     recent_words.append(word)
 
 
+with open("recognizer_results/raw_results.txt", 'r') as file:
+    
+    test_probs, test_guesses, test_words = json.load(file)
+    acc_before = report_recognizer_results(test_words, test_probs, test_guesses, None, None, None)
+    
+    test_probs, test_guesses = update_probabilities(test_words, test_probs, test_guesses, test_SLM)
+    acc_after = report_recognizer_results(test_words, test_probs, test_guesses, None, None, None)
+    
+    print("\nAccuracy difference: {}%".format(acc_after - acc_before))
 
-test_probs = [
-    {'a': 0.5, 'b': 0.2 },
-    {'a': 0.1, 'b': 0.8 }
-]
-test_guesses = ['a', 'b']
-
-with open("recognizer_results/raw_results.txt", 'w') as file:
-    json.dump([test_probs, test_guesses], file)
-
+with open("recognizer_results/SLM_results.txt", 'w') as file:
+    json.dump((test_probs, test_guesses, test_words), file)
 
 
