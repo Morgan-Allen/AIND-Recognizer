@@ -2,7 +2,73 @@
 import warnings
 from asl_data import WordsData, SinglesData
 import timeit
-import random
+
+
+class BasicSLM:
+    
+    def __init__(
+        self,
+        file_name: str,
+        max_grams = 3,
+        verbose   = False
+    ):
+        print("\nNow building SLM...")
+        SLM_file = open(file_name)
+        
+        self.max_grams     = max_grams
+        self.all_words     = set()
+        self.all_freqs     = {}
+        self.all_priors    = {}
+        self.total_samples = 0
+        
+        #  Okay.  So... what do I do here?
+        #  Take the total count for a given word, and divide by instances of all
+        #  words.  That's the simple probability.
+        
+        #  If you know what the previous word was, you can get the probability of
+        #  that word being followed by another, out of the set of all 2-word
+        #  sequences, which also happen to start with that word.  And so on.
+        
+        for line in SLM_file.readlines():
+            line_words = line.split()
+            if verbose: print("    {}".format(line_words))
+            
+            for gram in range(1, max_grams + 1):
+                for n in range(len(line_words) - gram):
+                    sequence  = line_words[n:n + gram]
+                    prior_key = str(sequence[0:-1])
+                    seq_key   = str(sequence)
+                    
+                    if not seq_key in self.all_freqs: self.all_freqs[seq_key] = 0
+                    self.all_freqs[seq_key] += 1
+                    
+                    if not prior_key in self.all_priors: self.all_priors[prior_key] = 0
+                    self.all_priors[prior_key] += 1
+                    
+                    self.all_words.update(sequence)
+                    self.total_samples += 1
+        
+        self.all_words = list(self.all_words)
+        
+        if verbose:
+            print("\nAll words are:", self.all_words)
+            
+            print("\nSequences are...")
+            for key in self.all_freqs.keys():
+                print("  {} : {}".format(key, "|" * self.all_freqs[key]))
+            
+            print("\nPriors are:")
+            for key in self.all_priors.keys():
+                print("  {} : {}".format(key, "|" * self.all_priors[key]))
+    
+    
+    def get_conditional_likelihood(self, sequence, smooth = 1):
+        seq_key    = str(sequence)
+        prior_key  = str(sequence[0:-1])
+        raw_freq   = self.all_freqs[seq_key] if seq_key in self.all_freqs else 0
+        priors     = self.all_priors[prior_key] if prior_key in self.all_priors else self.total_samples
+        
+        return (raw_freq + smooth) / (priors + smooth)
 
 
 """
@@ -24,10 +90,18 @@ def recognize(models: dict, test_set: SinglesData):
     return recognize_words(models, test_set, test_set.wordlist)
 
 
-def recognize_words(models: dict, test_set: SinglesData, word_list, verbose = False):
+def recognize_words(
+    models:   dict,
+    test_set: SinglesData,
+    langModel: BasicSLM = None,
+    word_list = None,
+    verbose   = False
+):
     warnings.filterwarnings("ignore", category=DeprecationWarning)
     probabilities = []
     guesses       = []
+    
+    if word_list == None: word_list = test_set.wordlist
     
     for word_id in word_list:
         best_score = float("-inf")
@@ -128,115 +202,6 @@ def perform_recognizer_pass(
     print("\n  FEATURES ARE:", features      )
     print("  SELECTOR IS: ", model_selector)
     print("  ACCURACY: {}%".format(accuracy))
-
-
-
-def build_SLM(
-    file_name: str,
-    max_grams = 3,
-    verbose   = False
-):
-    print("\nNow building SLM...")
-    SLM_file = open(file_name)
-    
-    all_words     = set()
-    all_freqs     = {}
-    all_priors    = {}
-    total_samples = 0
-    def freq_key(word, gram):
-        key = "{}_{}".format(word, gram)
-        if not key in all_freqs: all_freqs[key] = {}
-        return key
-    
-    #  Okay.  So... what do I do here?
-    #  Take the total count for a given word, and divide by instances of all
-    #  words.  That's the simple probability.
-    
-    #  If you know what the previous word was, you can get the probability of
-    #  that word being followed by another, out of the set of all 2-word
-    #  sequences, which also happen to start with that word.  And so on.
-    
-    for line in SLM_file.readlines():
-        line_words = line.split()
-        if verbose: print("    {}".format(line_words))
-        
-        for gram in range(1, max_grams + 1):
-            for n in range(len(line_words) - gram):
-                sequence  = line_words[n:n + gram]
-                word      = sequence[-1]
-                key       = freq_key(word, gram)
-                prior_key = str(sequence[0:-1])
-                seq_key   = str(sequence)
-                freqs     = all_freqs[key]
-                
-                if not seq_key in freqs: freqs[seq_key] = 0
-                freqs[seq_key] += 1
-                
-                if not prior_key in all_priors: all_priors[prior_key] = 0
-                all_priors[prior_key] += 1
-                
-                all_words.update(sequence)
-                total_samples += 1
-    
-    all_words = list(all_words)
-    
-    if verbose:
-        print("\nAll words are:", all_words)
-        
-        print("\nSequences are...")
-        for key in all_freqs.keys():
-            print("  {} [".format(key))
-            freqs = all_freqs[key]
-            for seq_key in freqs.keys():
-                print("    {} : {}".format(seq_key, "|" * freqs[seq_key]))
-            print("  ]")
-        
-        print("\nPriors are:")
-        for key in all_priors.keys():
-            print("  {} : {}".format(key, "|" * all_priors[key]))
-    
-    #  So... how do I answer the question... what is the likelihood of word A,
-    #  given it followed on words B and/or C?
-    
-    def get_conditional_likelihood(sequence, smooth = 1):
-        gram       = len(sequence)
-        word       = sequence[-1]
-        key        = freq_key(word, gram)
-        seq_key    = str(sequence)
-        prior_key  = str(sequence[0:-1])
-        freqs      = all_freqs[key]
-        raw_freq   = freqs[seq_key] if seq_key in freqs else 0
-        priors     = all_priors[prior_key] if prior_key in all_priors else total_samples
-        
-        return (raw_freq + smooth) / (priors + smooth)
-    
-    for gram in range(1, max_grams + 1):
-        num_samples = 10
-        
-        for i in range(num_samples):
-            sample = []
-            while len(sample) < gram:
-                sample.append(random.choice(all_words))
-            
-            likelihood = get_conditional_likelihood(sample)
-            
-            print("\nChance of", sample[-1], "after", sample[0:-1], "is", likelihood)
-    
-    pass
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
