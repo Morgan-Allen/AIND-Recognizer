@@ -132,17 +132,20 @@ def perform_recognizer_pass(
 
 def build_SLM(
     file_name: str,
-    max_grams = 3
+    max_grams = 3,
+    verbose   = False
 ):
     print("\nNow building SLM...")
     SLM_file = open(file_name)
     
-    all_words = set()
-    all_freqs = {}
-    def sequence_key(word, gram):
+    all_words  = set()
+    all_freqs  = {}
+    all_priors = {}
+    def freq_key(word, gram):
         key = "{}_{}".format(word, gram)
         if not key in all_freqs: all_freqs[key] = {}
         return key
+    
     
     #  Okay.  So... what do I do here?
     #  Take the total count for a given word, and divide by instances of all
@@ -154,32 +157,72 @@ def build_SLM(
     
     for line in SLM_file.readlines():
         line_words = line.split()
-        #print("    {}".format(line_words))
+        if verbose: print("    {}".format(line_words))
         
         for gram in range(1, max_grams + 1):
             for n in range(len(line_words) - gram):
-                sequence = line_words[n:n + gram]
-                word     = sequence[0]
-                key      = sequence_key(word, gram)
-                freqs    = all_freqs[key]
-                seq_key  = str(sequence)
+                sequence  = line_words[n:n + gram]
+                word      = sequence[-1]
+                key       = freq_key(word, gram)
+                prior_key = str(sequence[0:-1])
+                seq_key   = str(sequence)
+                freqs     = all_freqs[key]
                 
                 if not seq_key in freqs: freqs[seq_key] = 0
                 freqs[seq_key] += 1
                 
+                if not prior_key in all_priors: all_priors[prior_key] = 0
+                all_priors[prior_key] += 1
+                
                 all_words.update(sequence)
     
-    print("\nAll words are:", all_words)
+    if verbose:
+        print("\nAll words are:", all_words)
+        
+        print("\nSequences are...")
+        for key in all_freqs.keys():
+            print("  {} [".format(key))
+            freqs = all_freqs[key]
+            for seq_key in freqs.keys():
+                print("    {} : {}".format(seq_key, "|" * freqs[seq_key]))
+            print("  ]")
+        
+        print("\nPriors are:")
+        for key in all_priors.keys():
+            print("  {} : {}".format(key, "|" * all_priors[key]))
     
-    print("\nSequences are...")
-    for key in all_freqs.keys():
-        print("  {} [".format(key))
-        freqs = all_freqs[key]
-        for seq_key in freqs.keys():
-            print("    {} : {}".format(seq_key, "|" * freqs[seq_key]))
-        print("  ]")
+    #  So... how do I answer the question... what is the likelihood of word A,
+    #  given it followed on words B and/or C?
+    
+    def get_conditional_likelihood(sequence, smooth = 1):
+        gram       = len(sequence)
+        word       = sequence[-1]
+        key        = freq_key(word, gram)
+        seq_key    = str(sequence)
+        prior_key  = str(sequence[0:-1])
+        freqs      = all_freqs[key]
+        base_count = freqs[seq_key]
+        priors     = all_priors[prior_key]
+        
+        return (base_count + smooth) / (priors + smooth)
     
     pass
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
