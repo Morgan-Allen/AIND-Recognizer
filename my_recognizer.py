@@ -135,7 +135,6 @@ def recognize(models: dict, test_set: SinglesData):
 def recognize_words(
     models:     dict,
     test_set:   SinglesData,
-    lang_model: BasicSLM = None,
     word_list   = None,
     verbose     = False
 ):
@@ -160,11 +159,6 @@ def recognize_words(
                 except Exception as e:
                     if verbose: print("  Recognition error:", e, "for", word, "in", word_id)
                 
-                if lang_model != None:
-                    word_sample = lang_model.get_sample(guesses, word)
-                    lang_chance = lang_model.get_conditional_likelihood(word_sample)
-                    score       += math.log(lang_chance)
-                
                 all_probs[word] = score
                 if verbose: print("  Score for", word, "is", score)
                 if score > best_score:
@@ -182,27 +176,49 @@ def recognize_words(
     return probabilities, guesses
 
 
-def perform_recognizer_pass(
-    training_set:  WordsData,
-    testing_set:   SinglesData,
-    model_selector ,
-    lang_model:    BasicSLM = None,
-    train_words    = None,
-    test_words     = None,
-    verbose        = False,
-    features       = []
+def update_probabilities(
+    word_list,
+    probabilities,
+    guesses,
+    lang_model: BasicSLM = None
 ):
-    print("\n\nPERFORMING RECOGNITION PASS...")
+    word_ID      = 0
+    recent_words = []
     
-    models_dict = train_all_words(training_set, model_selector, train_words, verbose, features)
+    for word in word_list:
+        best_score = float("-inf")
+        best_guess = None
+        probs      = probabilities[word_ID]
+        
+        for guess in probs.keys():
+            word_sample = lang_model.get_sample(recent_words, guess)
+            lang_chance = lang_model.get_conditional_likelihood(word_sample)
+            score       = probs[word] + (math.log(lang_chance) * 10)
+            probs[word] = score
+            
+            if score > best_score:
+                best_score = score
+                best_guess = word
+        
+        guesses[word_ID] = best_guess
+        word_ID += 1
     
-    if test_words == None: test_words = testing_set.wordlist
-    probabilities, guesses = recognize_words(models_dict, testing_set, lang_model, test_words, verbose)
-    
+    return probabilities, guesses
+
+
+def report_recognizer_results(
+    test_words    ,
+    probabilities ,
+    guesses       ,
+    model_selector,
+    lang_model    ,
+    features
+):
     word_ID  = 0
     num_hits = 0
     num_miss = 0
     
+    print("\n\nREPORTING RECOGNIZER RESULTS.")
     for word in test_words:
         guess = guesses      [word_ID]
         prob  = probabilities[word_ID][guess]
@@ -214,7 +230,7 @@ def perform_recognizer_pass(
     
     accuracy = (100 * num_hits) / (num_hits + num_miss)
     print("\n  FEATURES ARE:", features)
-    print("  LANG MODEL IS: ", lang_model)
+    print("  LANGUAGE MODEL IS: ", lang_model)
     print("  SELECTOR IS: ", model_selector)
     print("  ACCURACY: {}%".format(accuracy))
 
