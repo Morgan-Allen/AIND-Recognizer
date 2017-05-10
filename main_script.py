@@ -15,6 +15,7 @@ from my_recognizer import (
     update_probabilities,
     report_recognizer_results
 )
+import json
 
 
 # initializes the database
@@ -86,8 +87,14 @@ models_dict    = train_all_words(training_set, selector, train_words, verbose = 
 test_probs, test_guesses = recognize_words(models_dict, testing_set, test_words, verbose = False)
 report_recognizer_results(test_words, test_probs, test_guesses, selector, test_SLM, feature_set)
 
+with open("recognizer_results/raw_results.txt", 'w') as file:
+    json.dump((test_probs, test_guesses), file)
+
 test_probs, test_guesses = update_probabilities(test_words, test_probs, test_guesses, test_SLM)
 report_recognizer_results(test_words, test_probs, test_guesses, selector, test_SLM, feature_set)
+
+with open("recognizer_results/SLM_results.txt", 'w') as file:
+    json.dump((test_probs, test_guesses), file)
 
 
 
