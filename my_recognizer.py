@@ -130,5 +130,58 @@ def perform_recognizer_pass(
 
 
 
+def build_SLM(
+    file_name: str,
+    max_grams = 3
+):
+    print("\nNow building SLM...")
+    SLM_file = open(file_name)
+    
+    all_words = set()
+    all_freqs = {}
+    def sequence_key(word, gram):
+        key = "{}_{}".format(word, gram)
+        if not key in all_freqs: all_freqs[key] = {}
+        return key
+    
+    #  Okay.  So... what do I do here?
+    #  Take the total count for a given word, and divide by instances of all
+    #  words.  That's the simple probability.
+    
+    #  If you know what the previous word was, you can get the probability of
+    #  that word being followed by another, out of the set of all 2-word
+    #  sequences, which also happen to start with that word.  And so on.
+    
+    for line in SLM_file.readlines():
+        line_words = line.split()
+        #print("    {}".format(line_words))
+        
+        for gram in range(1, max_grams + 1):
+            for n in range(len(line_words) - gram):
+                sequence = line_words[n:n + gram]
+                word     = sequence[0]
+                key      = sequence_key(word, gram)
+                freqs    = all_freqs[key]
+                seq_key  = str(sequence)
+                
+                if not seq_key in freqs: freqs[seq_key] = 0
+                freqs[seq_key] += 1
+                
+                all_words.update(sequence)
+    
+    print("\nAll words are:", all_words)
+    
+    print("\nSequences are...")
+    for key in all_freqs.keys():
+        print("  {} [".format(key))
+        freqs = all_freqs[key]
+        for seq_key in freqs.keys():
+            print("    {} : {}".format(seq_key, "|" * freqs[seq_key]))
+        print("  ]")
+    
+    pass
+
+
+
 
 
