@@ -8,7 +8,7 @@ import warnings
 import numpy as np
 from asl_data import AslDb
 from my_model_selectors import (SelectorCV, SelectorDIC, SelectorBIC)
-from my_recognizer import perform_recognizer_pass
+from my_recognizer import perform_recognizer_pass, BasicSLM
 
 
 # initializes the database
@@ -66,15 +66,45 @@ feature_sets  = [features_ground, features_polar, features_custom]
 
 warnings.filterwarnings("ignore")
 
+"""
 for feature_set in feature_sets:
     for selector in all_selectors:
         training_set   = asl.build_training(feature_set)
         testing_set    = asl.build_test    (feature_set)
         train_words    = training_set.words
-        #train_words    = ['FISH', 'BOOK', 'VEGETABLE', 'FUTURE', 'JOHN']
+        #train_words   = ['FISH', 'BOOK', 'VEGETABLE', 'FUTURE', 'JOHN']
         test_words     = testing_set.wordlist
-        #test_words     = ['FISH', 'BOOK', 'VEGETABLE', 'FUTURE', 'JOHN']
-        perform_recognizer_pass(training_set, testing_set, selector, train_words, test_words, features=feature_set)
+        #test_words    = ['FISH', 'BOOK', 'VEGETABLE', 'FUTURE', 'JOHN']
+        perform_recognizer_pass(training_set, testing_set, selector, None, train_words, test_words, features=feature_set)
+"""
+
+
+test_SLM       = BasicSLM("SLM_data/corpus_sentences.txt", verbose = False)
+feature_set    = features_custom
+selector       = SelectorBIC
+training_set   = asl.build_training(feature_set)
+testing_set    = asl.build_test    (feature_set)
+#train_words    = training_set.words
+#test_words     = testing_set.wordlist
+train_words   = ['FISH', 'BOOK', 'VEGETABLE']
+test_words    = ['FISH', 'BOOK', 'VEGETABLE']
+
+
+perform_recognizer_pass(training_set, testing_set, selector, None    , train_words, test_words, verbose = True, features = feature_set)
+perform_recognizer_pass(training_set, testing_set, selector, test_SLM, train_words, test_words, verbose = True, features = feature_set)
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
