@@ -2,6 +2,7 @@
 import warnings
 from asl_data import WordsData, SinglesData
 import timeit
+import random
 
 
 """
@@ -138,14 +139,14 @@ def build_SLM(
     print("\nNow building SLM...")
     SLM_file = open(file_name)
     
-    all_words  = set()
-    all_freqs  = {}
-    all_priors = {}
+    all_words     = set()
+    all_freqs     = {}
+    all_priors    = {}
+    total_samples = 0
     def freq_key(word, gram):
         key = "{}_{}".format(word, gram)
         if not key in all_freqs: all_freqs[key] = {}
         return key
-    
     
     #  Okay.  So... what do I do here?
     #  Take the total count for a given word, and divide by instances of all
@@ -175,6 +176,9 @@ def build_SLM(
                 all_priors[prior_key] += 1
                 
                 all_words.update(sequence)
+                total_samples += 1
+    
+    all_words = list(all_words)
     
     if verbose:
         print("\nAll words are:", all_words)
@@ -201,10 +205,22 @@ def build_SLM(
         seq_key    = str(sequence)
         prior_key  = str(sequence[0:-1])
         freqs      = all_freqs[key]
-        base_count = freqs[seq_key]
-        priors     = all_priors[prior_key]
+        raw_freq   = freqs[seq_key] if seq_key in freqs else 0
+        priors     = all_priors[prior_key] if prior_key in all_priors else total_samples
         
-        return (base_count + smooth) / (priors + smooth)
+        return (raw_freq + smooth) / (priors + smooth)
+    
+    for gram in range(1, max_grams + 1):
+        num_samples = 10
+        
+        for i in range(num_samples):
+            sample = []
+            while len(sample) < gram:
+                sample.append(random.choice(all_words))
+            
+            likelihood = get_conditional_likelihood(sample)
+            
+            print("\nChance of", sample[-1], "after", sample[0:-1], "is", likelihood)
     
     pass
 
