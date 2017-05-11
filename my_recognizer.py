@@ -64,14 +64,6 @@ class BasicSLM:
                 print("  {} : {}".format(key, "|" * self.all_priors[key]))
     
     
-    def get_conditional_likelihood(self, sequence, smooth = 1):
-        seq_key    = str(sequence)
-        prior_key  = str(sequence[0:-1])
-        raw_freq   = self.all_freqs[seq_key] if seq_key in self.all_freqs else 0
-        priors     = self.all_priors[prior_key] if prior_key in self.all_priors else self.total_samples
-        return (raw_freq + smooth) / (priors + smooth)
-    
-    
     def get_sample(self, test_words: list, index: int, guess_word: str):
         max_recent = self.max_grams - 1
         sample     = None
@@ -79,6 +71,41 @@ class BasicSLM:
         else:                       sample = test_words[index - max_recent:index]
         sample.append(guess_word)
         return sample
+    
+    
+    def get_conditional_prob(self, sample, smooth = 1):
+        seq_key   = str(sample)
+        prior_key = str(sample[0:-1])
+        raw_freq  = self.all_freqs[seq_key] if seq_key in self.all_freqs else 0
+        priors    = self.all_priors[prior_key] if prior_key in self.all_priors else self.total_samples
+        return (raw_freq + smooth) / (priors + smooth)
+    
+    
+    def get_max_prob(self, sample):
+        #"""
+        return self.get_conditional_prob(sample)
+        #"""
+        
+        """
+        seq_key = str(sample)
+        if seq_key in self.all_freqs:
+            return self.get_conditional_prob(sample)
+        """
+        
+        """
+        #  TODO:  This isn't actually improving the estimate in any way.
+        max_prob = 0
+        divisor  = 1.
+        gram     = min(len(sample), self.max_grams)
+        while gram > 0:
+            sub_sample = sample[0 - gram:]
+            prob       = self.get_conditional_prob(sub_sample)
+            max_prob   = max_prob + (prob / divisor)
+            gram       -= 1
+            divisor    *= 100
+            break
+        return max_prob
+        """
 
 
 def train_all_words(
@@ -201,7 +228,7 @@ def get_SLM_probs(all_words, all_probs, SLM):
         SLM_probs = {}
         for guess in probs.keys():
             sample   = SLM.get_sample(all_words, index, guess)
-            SLM_prob = SLM.get_conditional_likelihood(sample)
+            SLM_prob = SLM.get_max_prob(sample)
             SLM_probs[guess] = math.log(SLM_prob)
         
         all_SLM_probs.append(SLM_probs)
@@ -209,7 +236,13 @@ def get_SLM_probs(all_words, all_probs, SLM):
     return all_SLM_probs
 
 
-def normalise_and_combine(all_words, all_probs, all_SLM_probs, all_guesses):
+def normalise_and_combine(
+    all_words    ,
+    all_probs    ,
+    all_SLM_probs,
+    all_guesses  ,
+    SLM_weight   = 1.0
+):
     all_new_probs, all_new_guesses = [], []
     
     for index in range(len(all_words)):
@@ -223,7 +256,7 @@ def normalise_and_combine(all_words, all_probs, all_SLM_probs, all_guesses):
         best_guess = None
         
         for guess in probs.keys():
-            new_score = (probs[guess] + SLM_probs[guess]) / 2
+            new_score = probs[guess] + (SLM_probs[guess] * SLM_weight)
             new_probs[guess] = new_score
             
             if new_score > best_score:
@@ -235,34 +268,6 @@ def normalise_and_combine(all_words, all_probs, all_SLM_probs, all_guesses):
         all_new_guesses.append(best_guess)
     
     return all_new_probs, all_new_guesses
-
-
-"""
-def update_probabilities(
-    word_list,
-    probabilities,
-    guesses,
-    lang_model: BasicSLM = None
-):
-    for word_ID in range(len(word_list)):
-        best_score = float("-inf")
-        best_guess = guesses[word_ID]
-        probs      = probabilities[word_ID]
-        
-        for guess in probs.keys():
-            word_sample  = lang_model.get_sample(word_list, word_ID, guess)
-            lang_chance  = lang_model.get_conditional_likelihood(word_sample)
-            score        = probs[guess] + (math.log(lang_chance) * 1)
-            probs[guess] = score
-            
-            if score > best_score:
-                best_score = score
-                best_guess = guess
-        
-        guesses[word_ID] = best_guess
-    
-    return probabilities, guesses
-"""
 
 
 def report_recognizer_results(
