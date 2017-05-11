@@ -114,6 +114,22 @@ def train_all_words(
     return model_dict
 
 
+def normalise_probs(probs):
+    max_prob = float("-inf")
+    min_prob = float("inf")
+    
+    for key in probs.keys():
+        max_prob = max(max_prob, probs[key])
+        min_prob = min(min_prob, probs[key])
+    
+    prob_range = max_prob - min_prob
+    if prob_range == 0: prob_range = 1
+    
+    for key in probs.keys():
+        probs[key] = (probs[key] - min_prob) * 1000. / prob_range
+
+
+
 """
 Recognize test word sequences from word models set
 
@@ -177,6 +193,51 @@ def recognize_words(
     return probabilities, guesses
 
 
+def get_SLM_probs(all_words, all_probs, SLM):
+    all_SLM_probs = []
+    
+    for index in range(len(all_words)):
+        probs = all_probs[index]
+        SLM_probs = {}
+        for guess in probs.keys():
+            sample   = SLM.get_sample(all_words, index, guess)
+            SLM_prob = SLM.get_conditional_likelihood(sample)
+            SLM_probs[guess] = math.log(SLM_prob)
+        
+        all_SLM_probs.append(SLM_probs)
+    
+    return all_SLM_probs
+
+
+def normalise_and_combine(all_words, all_probs, all_SLM_probs, all_guesses):
+    all_new_probs, all_new_guesses = [], []
+    
+    for index in range(len(all_words)):
+        probs     = all_probs[index]
+        SLM_probs = all_SLM_probs[index]
+        new_probs = {}
+        normalise_probs(probs)
+        normalise_probs(SLM_probs)
+        
+        best_score = float("-inf")
+        best_guess = None
+        
+        for guess in probs.keys():
+            new_score = (probs[guess] + SLM_probs[guess]) / 2
+            new_probs[guess] = new_score
+            
+            if new_score > best_score:
+                best_score = new_score
+                best_guess = guess
+        
+        normalise_probs(new_probs)
+        all_new_probs  .append(new_probs )
+        all_new_guesses.append(best_guess)
+    
+    return all_new_probs, all_new_guesses
+
+
+"""
 def update_probabilities(
     word_list,
     probabilities,
@@ -201,6 +262,7 @@ def update_probabilities(
         guesses[word_ID] = best_guess
     
     return probabilities, guesses
+"""
 
 
 def report_recognizer_results(

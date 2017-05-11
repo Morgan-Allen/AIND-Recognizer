@@ -1,12 +1,13 @@
 
 
 import random
-import math
-from my_recognizer import BasicSLM, update_probabilities, report_recognizer_results
+from my_recognizer import (
+    BasicSLM, get_SLM_probs, normalise_and_combine, report_recognizer_results
+)
 import json
 
 
-def show_guesses(index, all_words, all_probs, all_SLM_probs):
+def show_guesses(index, all_words, all_probs, all_SLM_probs, test_SLM):
     
     def guess_sort(key):
         return 0 - probs[key]
@@ -15,8 +16,10 @@ def show_guesses(index, all_words, all_probs, all_SLM_probs):
     probs       = all_probs[index]
     all_guesses = list(probs.keys())
     all_guesses = sorted(all_guesses, key = guess_sort)
+    sample      = test_SLM.get_sample(all_words, index, word)
     
     print("\nRecognizer failed for:", word)
+    print("Sample sequence would be:", sample)
     print("Sample probabilities were:")
     
     num_shown = 0
@@ -28,21 +31,6 @@ def show_guesses(index, all_words, all_probs, all_SLM_probs):
         num_shown += 1
     
     print("\n")
-
-
-def normalise_probs(probs):
-    max_prob = float("-inf")
-    min_prob = float("inf")
-    
-    for key in probs.keys():
-        max_prob = max(max_prob, probs[key])
-        min_prob = min(min_prob, probs[key])
-    
-    prob_range = max_prob - min_prob
-    if prob_range == 0: prob_range = 1
-    
-    for key in probs.keys():
-        probs[key] = (probs[key] - min_prob) * 1000. / prob_range
 
 
 
@@ -70,45 +58,40 @@ for word in sample_words:
 
 
 
-all_probs, all_guesses, all_words, all_SLM_probs = [], [], [], []
+all_probs, all_guesses, all_words = [], [], []
 
 with open("recognizer_results/raw_results.txt", 'r') as file:
     all_probs, all_guesses, all_words = json.load(file)
 
+acc_before = report_recognizer_results(all_words, all_probs, all_guesses, None, None, None)
 
-print("\nNormalising probabilities...")
+all_SLM_probs = get_SLM_probs(all_words, all_probs, test_SLM)
+
+print("\n\nChecking for all specific mismatches...")
 for index in range(len(all_words)):
     word  = all_words  [index]
     best  = all_guesses[index]
-    probs = all_probs  [index]
-    
     if best != word:
         print("  {} mislabelled as {} (index {})".format(word, best, index))
-    
-    SLM_probs = {}
-    for guess in probs.keys():
-        sample   = test_SLM.get_sample(all_words, index, guess)
-        SLM_prob = test_SLM.get_conditional_likelihood(sample)
-        SLM_probs[guess] = SLM_prob
-    
-    normalise_probs(probs)
-    normalise_probs(SLM_probs)
-    all_SLM_probs.append(SLM_probs)
 
+show_guesses(2 , all_words, all_probs, all_SLM_probs, test_SLM)
+show_guesses(8 , all_words, all_probs, all_SLM_probs, test_SLM)
+show_guesses(12, all_words, all_probs, all_SLM_probs, test_SLM)
+show_guesses(18, all_words, all_probs, all_SLM_probs, test_SLM)
 
-show_guesses(2, all_words, all_probs, all_SLM_probs)
+new_probs, new_guesses = normalise_and_combine(all_words, all_probs, all_SLM_probs, all_guesses)
+acc_after = report_recognizer_results(all_words, new_probs, new_guesses, None, None, None)
 
-
-"""
-acc_before = report_recognizer_results(test_words, test_probs, test_guesses, None, None, None)
-test_probs, test_guesses = update_probabilities(test_words, test_probs, test_guesses, test_SLM)
-acc_after = report_recognizer_results(test_words, test_probs, test_guesses, None, None, None)
 
 print("\nAccuracy difference: {}%".format(acc_after - acc_before))
 
 with open("recognizer_results/SLM_results.txt", 'w') as file:
-    json.dump((test_probs, test_guesses, test_words), file)
-"""
+    json.dump((new_probs, new_guesses, all_words), file)
+
+
+
+
+
 
 
 
