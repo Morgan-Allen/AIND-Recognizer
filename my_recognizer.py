@@ -14,7 +14,6 @@ class BasicSLM:
         verbose    = False
     ):
         print("\nNow building SLM...")
-        SLM_file = open(file_name)
         
         self.max_grams     = max_grams
         self.all_words     = set()
@@ -30,12 +29,13 @@ class BasicSLM:
         #  that word being followed by another, out of the set of all 2-word
         #  sequences, which also happen to start with that word.  And so on.
         
+        SLM_file = open(file_name)
         for line in SLM_file.readlines():
             line_words = line.split()
             if verbose: print("    {}".format(line_words))
             
             for gram in range(1, max_grams + 1):
-                for n in range(len(line_words) - gram):
+                for n in range(len(line_words) + 1 - gram):
                     sequence  = line_words[n:n + gram]
                     prior_key = str(sequence[0:-1])
                     seq_key   = str(sequence)
@@ -48,6 +48,7 @@ class BasicSLM:
                     
                     self.all_words.update(sequence)
                     self.total_samples += 1
+                    if gram > 1: print("      {}".format(sequence))
         
         self.all_words = list(self.all_words)
         
@@ -71,12 +72,12 @@ class BasicSLM:
         return (raw_freq + smooth) / (priors + smooth)
     
     
-    def get_sample(self, recent_words: list, last_word: str):
+    def get_sample(self, test_words: list, index: int, guess_word: str):
         max_recent = self.max_grams - 1
         sample     = None
-        if len(recent_words) <= max_recent: sample = recent_words.copy()
-        else:                               sample = recent_words[(0 - max_recent):]
-        sample.append(last_word)
+        if index + 1 <= max_recent: sample = test_words[0:index]
+        else:                       sample = test_words[index - max_recent:index]
+        sample.append(guess_word)
         return sample
 
 
@@ -182,16 +183,13 @@ def update_probabilities(
     guesses,
     lang_model: BasicSLM = None
 ):
-    word_ID      = 0
-    recent_words = []
-    
-    for word in word_list:
+    for word_ID in range(len(word_list)):
         best_score = float("-inf")
         best_guess = guesses[word_ID]
         probs      = probabilities[word_ID]
         
         for guess in probs.keys():
-            word_sample  = lang_model.get_sample(recent_words, guess)
+            word_sample  = lang_model.get_sample(word_list, word_ID, guess)
             lang_chance  = lang_model.get_conditional_likelihood(word_sample)
             score        = probs[guess] + (math.log(lang_chance) * 1)
             probs[guess] = score
@@ -201,7 +199,6 @@ def update_probabilities(
                 best_guess = guess
         
         guesses[word_ID] = best_guess
-        word_ID += 1
     
     return probabilities, guesses
 
