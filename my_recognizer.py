@@ -1,8 +1,7 @@
 
 import warnings
 import math
-from asl_data import WordsData, SinglesData
-import timeit
+from asl_data import SinglesData
 
 
 class BasicSLM:
@@ -48,7 +47,7 @@ class BasicSLM:
                     
                     self.all_words.update(sequence)
                     self.total_samples += 1
-                    if gram > 1: print("      {}".format(sequence))
+                    if gram > 1 and verbose: print("      {}".format(sequence))
         
         self.all_words = list(self.all_words)
         
@@ -108,52 +107,27 @@ class BasicSLM:
         """
 
 
-def train_all_words(
-    training_set: WordsData,
-    model_selector,
-    word_list = None,
-    verbose   = False,
-    features  = []
-):
-    """
-    Train all words given a training set and selector
-    :param training: WordsData object (training set)
-    :param model_selector: class (subclassed from ModelSelector)
-    :return: dict of models keyed by word
-    """
-    sequences  = training_set.get_all_sequences()
-    Xlengths   = training_set.get_all_Xlengths()
-    model_dict = {}
-    if word_list == None: word_list = training_set.words
-    for word in word_list:
-        try:
-            start = timeit.default_timer()
-            model = model_selector(sequences, Xlengths, word, verbose = verbose, features = features).select()
-            model_dict[word] = model
-            end = timeit.default_timer()-start
-            if model is not None:
-                if verbose: print("Training complete for {} with {} states with time {} seconds".format(word, model.n_components, end))
-            else:
-                if verbose: print("Training failed for {}".format(word))
-        except Exception as e:
-            if verbose: print("Training failed for {}, error: {}".format(word, e))
-            model_dict[word] = None
-    return model_dict
-
-
 def normalise_probs(probs):
     max_prob = float("-inf")
     min_prob = float("inf")
+    new_probs = {}
     
     for key in probs.keys():
-        max_prob = max(max_prob, probs[key])
-        min_prob = min(min_prob, probs[key])
+        prob = probs[key]
+        if prob == float("inf") or prob == float("-inf"): continue
+        max_prob = max(max_prob, prob)
+        min_prob = min(min_prob, prob)
     
     prob_range = max_prob - min_prob
     if prob_range == 0: prob_range = 1
     
     for key in probs.keys():
-        probs[key] = (probs[key] - min_prob) * 1000. / prob_range
+        prob = probs[key]
+        if prob < min_prob: prob = min_prob
+        if prob > max_prob: prob = max_prob
+        new_probs[key] = (prob - min_prob) * 1000. / prob_range
+    
+    return new_probs
 
 
 
@@ -246,12 +220,9 @@ def normalise_and_combine(
     all_new_probs, all_new_guesses = [], []
     
     for index in range(len(all_words)):
-        probs     = all_probs[index]
-        SLM_probs = all_SLM_probs[index]
-        new_probs = {}
-        normalise_probs(probs)
-        normalise_probs(SLM_probs)
-        
+        probs      = normalise_probs(all_probs    [index])
+        SLM_probs  = normalise_probs(all_SLM_probs[index])
+        new_probs  = {}
         best_score = float("-inf")
         best_guess = None
         
@@ -263,7 +234,7 @@ def normalise_and_combine(
                 best_score = new_score
                 best_guess = guess
         
-        normalise_probs(new_probs)
+        new_probs = normalise_probs(new_probs)
         all_new_probs  .append(new_probs )
         all_new_guesses.append(best_guess)
     
