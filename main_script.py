@@ -91,7 +91,7 @@ acc_before = report_recognizer_results(test_words, test_probs, test_guesses, sel
 with open("recognizer_results/raw_results.txt", 'w') as file:
     json.dump((test_probs, test_guesses, test_words), file)
 
-test_SLM_probs = get_SLM_probs(test_words, test_probs, test_SLM)
+test_SLM_probs = get_SLM_probs(test_guesses, test_probs, test_SLM)
 new_probs, new_guesses = normalise_and_combine(test_words, test_probs, test_SLM_probs, test_guesses, 1)
 acc_after = report_recognizer_results(test_words, new_probs, new_guesses, None, None, None)
 

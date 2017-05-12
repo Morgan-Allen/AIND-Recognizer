@@ -5,28 +5,23 @@ from asl_data import SinglesData
 
 
 class BasicSLM:
-    
     def __init__(
         self,
         file_name: str,
         max_grams: int = 3,
         verbose    = False
     ):
-        print("\nNow building SLM...")
+        """
+        Compiles frequency tables for all n-gram sequences and their priors up
+        to a given gram limit.
+        """
+        if verbose: print("\nNow building SLM...")
         
         self.max_grams     = max_grams
         self.all_words     = set()
         self.all_freqs     = {}
         self.all_priors    = {}
         self.total_samples = 0
-        
-        #  Okay.  So... what do I do here?
-        #  Take the total count for a given word, and divide by instances of all
-        #  words.  That's the simple probability.
-        
-        #  If you know what the previous word was, you can get the probability of
-        #  that word being followed by another, out of the set of all 2-word
-        #  sequences, which also happen to start with that word.  And so on.
         
         SLM_file = open(file_name)
         for line in SLM_file.readlines():
@@ -63,16 +58,25 @@ class BasicSLM:
                 print("  {} : {}".format(key, "|" * self.all_priors[key]))
     
     
-    def get_sample(self, test_words: list, index: int, guess_word: str):
+    def get_sample(self, guesses: list, index: int, guess_word: str):
+        """
+        Samples up to max_grams - 1 words from the list of previous guesses,
+        then attaches the potential guess to that list.
+        """
         max_recent = self.max_grams - 1
         sample     = None
-        if index + 1 <= max_recent: sample = test_words[0:index]
-        else:                       sample = test_words[index - max_recent:index]
+        if index + 1 <= max_recent: sample = guesses[0:index]
+        else:                       sample = guesses[index - max_recent:index]
         sample.append(guess_word)
         return sample
     
     
     def get_conditional_prob(self, sample, smooth = 1):
+        """
+        Returns the conditional probability of the last word in the sample of
+        recent words.  An optional smoothing parameter is used to handle
+        unknown words.
+        """
         seq_key   = str(sample)
         prior_key = str(sample[0:-1])
         raw_freq  = self.all_freqs[seq_key] if seq_key in self.all_freqs else 0
@@ -81,18 +85,13 @@ class BasicSLM:
     
     
     def get_max_prob(self, sample):
+        #  NOTE:  I made various unsuccessful attempts at improving the score
+        #         value returned by get_conditional_prob here.
         #"""
         return self.get_conditional_prob(sample)
         #"""
         
         """
-        seq_key = str(sample)
-        if seq_key in self.all_freqs:
-            return self.get_conditional_prob(sample)
-        """
-        
-        """
-        #  TODO:  This isn't actually improving the estimate in any way.
         max_prob = 0
         divisor  = 1.
         gram     = min(len(sample), self.max_grams)
@@ -108,6 +107,10 @@ class BasicSLM:
 
 
 def normalise_probs(probs):
+    """
+    Normalises all probabilities for a given word to fit within the range of 0
+    to 1000, and returns the normalised table.
+    """
     max_prob = float("-inf")
     min_prob = float("inf")
     new_probs = {}
@@ -131,22 +134,22 @@ def normalise_probs(probs):
 
 
 
-"""
-Recognize test word sequences from word models set
-
- :param models: dict of trained models
- {'SOMEWORD': GaussianHMM model object, 'SOMEOTHERWORD': GaussianHMM model object, ...}
- :param test_set: SinglesData object
- :return: (list, list)  as probabilities, guesses
- both lists are ordered by the test set word_id
- probabilities is a list of dictionaries where each key a word and value is Log Liklihood
-     [{SOMEWORD': LogLvalue, 'SOMEOTHERWORD' LogLvalue, ... },
-      {SOMEWORD': LogLvalue, 'SOMEOTHERWORD' LogLvalue, ... },
-     ]
-guesses is a list of the best guess words ordered by the test set word_id
-    ['WORDGUESS0', 'WORDGUESS1', 'WORDGUESS2',...]
-"""
 def recognize(models: dict, test_set: SinglesData):
+    """
+    Recognize test word sequences from word models set
+    
+     :param models: dict of trained models
+     {'SOMEWORD': GaussianHMM model object, 'SOMEOTHERWORD': GaussianHMM model object, ...}
+     :param test_set: SinglesData object
+     :return: (list, list)  as probabilities, guesses
+     both lists are ordered by the test set word_id
+     probabilities is a list of dictionaries where each key a word and value is Log Liklihood
+         [{SOMEWORD': LogLvalue, 'SOMEOTHERWORD' LogLvalue, ... },
+          {SOMEWORD': LogLvalue, 'SOMEOTHERWORD' LogLvalue, ... },
+         ]
+    guesses is a list of the best guess words ordered by the test set word_id
+        ['WORDGUESS0', 'WORDGUESS1', 'WORDGUESS2',...]
+    """
     return recognize_words(models, test_set, test_set.wordlist)
 
 
@@ -156,6 +159,10 @@ def recognize_words(
     word_list   = None,
     verbose     = False
 ):
+    """
+    Similar to recognize, but with optional parameters to limit recognition to
+    a particular subset of words or add verbosity.
+    """
     warnings.filterwarnings("ignore", category=DeprecationWarning)
     probabilities = []
     guesses       = []
@@ -194,14 +201,18 @@ def recognize_words(
     return probabilities, guesses
 
 
-def get_SLM_probs(all_words, all_probs, SLM):
+def get_SLM_probs(all_guesses, all_probs, SLM):
+    """
+    Returns log-probabilities for word-guesses in a similar format to the
+    recognizer, but using the provided SLM.
+    """
     all_SLM_probs = []
     
-    for index in range(len(all_words)):
+    for index in range(len(all_guesses)):
         probs = all_probs[index]
         SLM_probs = {}
         for guess in probs.keys():
-            sample   = SLM.get_sample(all_words, index, guess)
+            sample   = SLM.get_sample(all_guesses, index, guess)
             SLM_prob = SLM.get_max_prob(sample)
             SLM_probs[guess] = math.log(SLM_prob)
         
@@ -217,6 +228,11 @@ def normalise_and_combine(
     all_guesses  ,
     SLM_weight   = 1.0
 ):
+    """
+    Combines probabilities from both the recognizer and SLM by normalising
+    each, averaging with the supplied weight, normalising the result, and
+    returning a tuple with the new probabilities and new guesses.
+    """
     all_new_probs, all_new_guesses = [], []
     
     for index in range(len(all_words)):
@@ -249,6 +265,9 @@ def report_recognizer_results(
     lang_model    ,
     features
 ):
+    """
+    Reports on recognizer accuracy with various parameters
+    """
     word_ID  = 0
     num_hits = 0
     num_miss = 0

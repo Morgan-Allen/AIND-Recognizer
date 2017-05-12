@@ -83,7 +83,6 @@ def getKey(item):
 def combine_sequences(split_index_list, sequences):
     '''
     concatenate sequences referenced in an index list and returns tuple of the new X,lengths
-
     useful when recombining sequences split using KFold for hmmlearn
 
     :param split_index_list: a list of indices as created by KFold splitting

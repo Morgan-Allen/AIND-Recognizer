@@ -26,9 +26,9 @@ def show_model_stats(word, model, features):
 
 
 class ModelSelector(object):
-    '''
+    """
     base class for model selection (strategy design pattern)
-    '''
+    """
     def __init__(
         self,
         all_word_sequences: dict,
@@ -54,9 +54,7 @@ class ModelSelector(object):
         self.features         = features
     
     def base_model(self, num_states, sequences = None, lengths = None):
-        # with warnings.catch_warnings():
         warnings.filterwarnings("ignore", category=DeprecationWarning)
-        # warnings.filterwarnings("ignore", category=RuntimeWarning)
         try:
             model = GaussianHMM(
                 n_components    = num_states,
@@ -107,9 +105,10 @@ class ModelSelector(object):
         raise NotImplementedError
 
 
-class SelectorConstant(ModelSelector):
-    """ select the model with value self.n_constant
 
+class SelectorConstant(ModelSelector):
+    """
+    Selects the model with value self.n_constant.
     """
     def select(self):
         """ select based on n_constant value
@@ -120,8 +119,10 @@ class SelectorConstant(ModelSelector):
         return self.base_model(best_num_components)
 
 
+
 class SelectorBIC(ModelSelector):
-    """ select the model with the lowest Baysian Information Criterion(BIC) score
+    """
+    Selects the model with the lowest Baysian Information Criterion(BIC) score
     http://www2.imm.dtu.dk/courses/02433/doc/ch6_slides.pdf
     Bayesian information criteria: BIC = -2 * logL + p * logN
     
@@ -138,8 +139,10 @@ class SelectorBIC(ModelSelector):
         return acc_bonus - size_penalty
 
 
+
 class SelectorDIC(ModelSelector):
-    ''' select best model based on Discriminative Information Criterion
+    """
+    Selects the best model based on Discriminative Information Criterion
     
     Biem, Alain. "A model selection criterion for classification: Application to hmm topology optimization."
     Document Analysis and Recognition, 2003. Proceedings. Seventh International Conference on. IEEE, 2003.
@@ -148,7 +151,7 @@ class SelectorDIC(ModelSelector):
     
     NOTE:  Actual model-selection is performed in the ModelSelector superclass-
     this method simply scores a pre-generated model.
-    '''
+    """
     def score_model(self, model):
         self_score = model.score(self.X, self.lengths)
         sum_other_scores = 0
@@ -162,16 +165,17 @@ class SelectorDIC(ModelSelector):
 
 
 class SelectorCV(ModelSelector):
-    ''' select best model based on average log Likelihood of cross-validation folds.
+    """
+    Selects the best model based on average log Likelihood of cross-validation folds.
     
     NOTE:  Actual model-selection is performed in the ModelSelector superclass-
     this method simply scores a pre-generated model.
-    '''
+    """
     split = None
     
     def score_model(self, model):
         #  NOTE:  KFold() chokes on small sequences, so I've hard-coded some
-        #  default-splits in these cases:
+        #  default-splits in these cases.  Values are cached for efficiency.
         if self.split == None:
             if   len(self.sequences) == 1: self.split = [([0], [0])]
             elif len(self.sequences) == 2: self.split = [([0], [1]), ([1], [0])]

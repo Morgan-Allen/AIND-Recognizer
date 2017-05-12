@@ -72,7 +72,7 @@ with open("recognizer_results/raw_results.txt", 'r') as file:
 
 acc_before = report_recognizer_results(all_words, all_probs, all_guesses, None, None, None)
 
-all_SLM_probs = get_SLM_probs(all_words, all_probs, test_SLM)
+all_SLM_probs = get_SLM_probs(all_guesses, all_probs, test_SLM)
 
 print("\n\nChecking for all specific mismatches...")
 for index in range(len(all_words)):
