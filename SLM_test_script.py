@@ -2,7 +2,8 @@
 
 import random
 from my_recognizer import (
-    BasicSLM, get_SLM_probs, scale_and_combine, report_recognizer_results
+    BasicSLM, FuzzySLM,
+    get_SLM_probs, scale_and_combine, report_recognizer_results
 )
 import json
 
@@ -49,7 +50,8 @@ def show_guesses(index, all_guesses, all_probs, all_SLM_probs, real_words):
 
 
 
-test_SLM = BasicSLM("SLM_data/corpus_sentences.txt", max_grams = 3, verbose = True)
+#test_SLM = BasicSLM("SLM_data/corpus_sentences.txt", max_grams = 3, verbose = True)
+test_SLM = FuzzySLM("SLM_data/corpus_grammar.txt", "SLM_data/corpus_sentences.txt", max_grams = 3, verbose = True)
 
 all_probs, all_guesses, all_words = [], [], []
 
@@ -58,7 +60,7 @@ with open("recognizer_results/raw_results.txt", 'r') as file:
 
 acc_before = report_recognizer_results(all_words, all_probs, all_guesses, None, None, None)
 
-new_probs, new_guesses = scale_and_combine(all_guesses, all_probs, test_SLM, 20)
+new_probs, new_guesses = scale_and_combine(all_guesses, all_probs, test_SLM, 2)
 
 acc_after = report_recognizer_results(all_words, new_probs, new_guesses, None, None, None)
 

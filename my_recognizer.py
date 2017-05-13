@@ -220,12 +220,12 @@ class FuzzySLM:
     
     
     def get_score(self, guesses: list, probabilities: list, index: int, guess: str):
-        if not guess in self.words: return 0
+        if not guess in self.words or index == 0: return 0
         
         sample     = self.get_sample(guesses, index, self.max_grams)
         guess      = self.words[guess]
         guess_type = self.words[guess.word_type]
-        score      = 0
+        score      = 0.0
         weight     = 2.0
         
         for label in sample[::-1]:
@@ -237,8 +237,11 @@ class FuzzySLM:
             score     += word     .after_weight(guess     ) * weight / 1
             score     += word     .after_weight(guess_type) * weight / 3.33
             score     += word_type.after_weight(guess     ) * weight / 3.33
-            score     += word_type.after_weight(guess_type) * weight / 10
-        return score
+            score     += word_type.after_weight(guess_type) * weight / 3.33
+        
+        if score == 0: return 0
+        score /= 2 * len(sample)
+        return math.log(score)
 
 
 def normalise_probs(probs):
