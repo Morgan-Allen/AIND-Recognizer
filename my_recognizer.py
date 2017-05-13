@@ -274,19 +274,18 @@ def normalise_probs(probs):
 
 def recognize(models: dict, test_set: SinglesData):
     """
-    Recognize test word sequences from word models set
-    
-     :param models: dict of trained models
-     {'SOMEWORD': GaussianHMM model object, 'SOMEOTHERWORD': GaussianHMM model object, ...}
-     :param test_set: SinglesData object
-     :return: (list, list)  as probabilities, guesses
-     both lists are ordered by the test set word_id
-     probabilities is a list of dictionaries where each key a word and value is Log Liklihood
-         [{SOMEWORD': LogLvalue, 'SOMEOTHERWORD' LogLvalue, ... },
-          {SOMEWORD': LogLvalue, 'SOMEOTHERWORD' LogLvalue, ... },
-         ]
-    guesses is a list of the best guess words ordered by the test set word_id
-        ['WORDGUESS0', 'WORDGUESS1', 'WORDGUESS2',...]
+      Recognize test word sequences from word models set
+      :param models: dict of trained models
+        {'SOMEWORD': GaussianHMM model object, 'SOMEOTHERWORD': etc...}
+      :param test_set: SinglesData object
+     
+      :return: (list, list)  as probabilities, guesses
+        both lists are ordered by the test set word_id
+        probabilities is a list of dictionaries where each key a word and value is Log likelihood
+          [{SOMEWORD': LogLvalue, 'SOMEOTHERWORD' LogLvalue, ... },
+           {SOMEWORD': LogLvalue, 'SOMEOTHERWORD' LogLvalue, ... },]
+        guesses is a list of the best guess words ordered by the test set word_id
+          ['WORDGUESS0', 'WORDGUESS1', 'WORDGUESS2',...]
     """
     return recognize_words(models, test_set, test_set.wordlist)
 
@@ -339,62 +338,6 @@ def recognize_words(
     return probabilities, guesses
 
 
-def get_SLM_probs(all_guesses, all_probs, SLM):
-    """
-    Returns log-probabilities for word-guesses in a similar format to the
-    recognizer, but using the provided SLM.
-    """
-    all_SLM_probs = []
-    
-    for index in range(len(all_guesses)):
-        probs = all_probs[index]
-        SLM_probs = {}
-        for guess in probs.keys():
-            sample   = SLM.get_sample(all_guesses, index, guess)
-            SLM_prob = SLM.get_max_prob(sample)
-            SLM_probs[guess] = math.log(SLM_prob)
-        
-        all_SLM_probs.append(SLM_probs)
-    
-    return all_SLM_probs
-
-
-def old_normalise_and_combine(
-    all_words    ,
-    all_probs    ,
-    all_SLM_probs,
-    all_guesses  ,
-    SLM_weight   = 1.0
-):
-    """
-    Combines probabilities from both the recognizer and SLM by normalising
-    each, averaging with the supplied weight, normalising the result, and
-    returning a tuple with the new probabilities and new guesses.
-    """
-    all_new_probs, all_new_guesses = [], []
-    
-    for index in range(len(all_words)):
-        probs      = normalise_probs(all_probs    [index])
-        SLM_probs  = normalise_probs(all_SLM_probs[index])
-        new_probs  = {}
-        best_score = float("-inf")
-        best_guess = None
-        
-        for guess in probs.keys():
-            new_score = probs[guess] + (SLM_probs[guess] * SLM_weight)
-            new_probs[guess] = new_score
-            
-            if new_score > best_score:
-                best_score = new_score
-                best_guess = guess
-        
-        new_probs = normalise_probs(new_probs)
-        all_new_probs  .append(new_probs )
-        all_new_guesses.append(best_guess)
-    
-    return all_new_probs, all_new_guesses
-
-
 def scale_and_combine(
     all_guesses  ,
     all_probs    ,
@@ -419,9 +362,6 @@ def scale_and_combine(
         for guess in probs.keys():
             SLM_probs[guess] = SLM.get_score(all_guesses, all_probs, index, guess)
         
-        #probs      = normalise_probs(probs)
-        #SLM_probs  = normalise_probs(SLM_probs)
-        
         for guess in probs.keys():
             new_score = probs[guess] + (SLM_probs[guess] * SLM_weight)
             new_probs[guess] = new_score
@@ -430,7 +370,6 @@ def scale_and_combine(
                 best_score = new_score
                 best_guess = guess
         
-        #new_probs = normalise_probs(new_probs)
         all_new_probs  .append(new_probs )
         all_new_guesses.append(best_guess)
         
@@ -457,10 +396,7 @@ def report_recognizer_results(
     
     print("\n\nREPORTING RECOGNIZER RESULTS.")
     for word in test_words:
-        guess = guesses      [word_ID]
-        prob  = probabilities[word_ID][guess]
-        print("  Guess for", word, "is", guess, "log. prob:", prob)
-        
+        guess = guesses[word_ID]
         if guess == word: num_hits += 1
         else:             num_miss += 1
         word_ID += 1
