@@ -13,8 +13,8 @@ class BasicSLM:
         verbose    = False
     ):
         """
-        Compiles frequency tables for all n-gram sequences and their priors up
-        to a given gram limit.
+        Default constructor, parsing corpus examples directly to try and boost
+        recognition accuracy.
         """
         if verbose: print("\nNow building SLM...")
         
@@ -24,6 +24,9 @@ class BasicSLM:
         self.all_priors    = {}
         self.total_samples = 0
         
+        #  Essentially, for each sample-sentence in the training corpus, we
+        #  split these into n-gram sequences, and store the frequency of each
+        #  sequence and it's prior in a brute-force fashion.
         SLM_file = open(file_name)
         for line in SLM_file.readlines():
             line_words = line.split()
@@ -86,11 +89,19 @@ class BasicSLM:
     
     
     def get_score(self, guesses: list, probabilities: list, index: int, guess: str):
+        """
+        Returns the score for a single guess-word at a given index within a
+        sequence of prior words.
+        """
         sample = self.get_sample(guesses, index, guess)
         return math.log(self.get_conditional_prob(sample))
     
     
     def get_sentence_score(self, sentence: list, index: int, guess: str):
+        """
+        Similar to get_score, but accumulated over the entire sentence up to
+        this point.
+        """
         log_prob = 0
         for i in range(index):
             sample = self.get_sample(sentence, index, guess)
@@ -102,7 +113,13 @@ class BasicSLM:
 
 class FuzzySLM:
     
-    
+    """
+    Each word in the vocabulary is stored with some information on it's
+    grammatical type, and the typical words that follow before and after.
+    (Note that grammatical types are also stored as 'words' for this purpose,
+    and that weightings are normalised separately for both normal words and
+    types.)
+    """
     class Word:
         def __init__(self):
             self.label     = None
@@ -153,6 +170,9 @@ class FuzzySLM:
     
     
     def inc_weight(self, word_label, prior_label, weight):
+        """
+        Increments the weight associated between two words in a sequence...
+        """
         word  = self.words[word_label ]
         prior = self.words[prior_label]
         if not word  in prior.after : prior.after [word ] = 0
@@ -162,6 +182,10 @@ class FuzzySLM:
     
     
     def get_sample(self, words, index, num_words):
+        """
+        Samples the num_words most recent words in a sequence before the give
+        index.
+        """
         sample = None
         if index + 1 <= num_words: sample = words[0:index]
         else:                      sample = words[index - num_words:index]
@@ -175,6 +199,10 @@ class FuzzySLM:
         max_grams:        int = 3,
         verbose           = False
     ):
+        """
+        Default constructor, using both grammar information and corpus
+        examples to try and boost recognition accuracy.
+        """
         grammar_file = open(grammar_filename, 'r')
         grammar      = json.load(grammar_file)
         
@@ -183,6 +211,9 @@ class FuzzySLM:
         self.type_list = []
         self.words     = {}
         
+        #  First, we use grammar information to initialise and cached Word
+        #  objects for the entire vocabulary, along with information on the
+        #  category of that word- noun, verb, descriptor, etc.
         for type_label in grammar.keys():
             self.words[type_label] = word_type = self.Word()
             word_type.label        = type_label
@@ -195,6 +226,8 @@ class FuzzySLM:
                 word.word_type    = type_label
                 self.word_list.append(label)
         
+        #  We then crack open the example corpus, and 'associate' each word
+        #  with those preceeding based on proximity, along with their types-
         corpus_file = open(corpus_filename, 'r')
         for line in corpus_file.readlines():
             line_words = line.split()
@@ -213,6 +246,7 @@ class FuzzySLM:
                     self.inc_weight(last_word, word_type, weight / 4)
                     weight /= 2
         
+        #  Then normalise the results, and print if required:
         for word in self.words.values():
             word.normalise()
         
@@ -228,6 +262,12 @@ class FuzzySLM:
     
     
     def get_score(self, guesses: list, probabilities: list, index: int, guess: str):
+        """
+        The reasoning here isn't precisely mathetical, but in essence an
+        attempt is made to measure how strongly the given guess-word is
+        'associated' with preceding words in the sequence (and/or their grammar
+        categories, such as nouns, verbs, etc.)
+        """
         if not guess in self.words or index == 0: return 0
         
         sample     = self.get_sample(guesses, index, self.max_grams)
@@ -253,16 +293,21 @@ class FuzzySLM:
     
     
     def get_sentence_score(self, sentence: list, index: int, guess: str):
+        """
+        Similar to get_score, but accumulated over the entire sentence up to
+        this point.
+        """
         log_prob = 0
         for i in range(index):
             log_prob += self.get_score(sentence, {}, index, guess)
         return log_prob
 
 
+
 def normalise_probs(probs):
     """
-    Normalises all probabilities for a given word to fit within the range of 0
-    to 1000, and returns the normalised table.
+    Scales all probabilities for a given word to fit within the range of 0 to
+    1000, and returns the normalised table.
     """
     max_prob = float("-inf")
     min_prob = float("inf")
@@ -284,7 +329,6 @@ def normalise_probs(probs):
         new_probs[key] = (prob - min_prob) * 1000. / prob_range
     
     return new_probs
-
 
 
 def recognize(models: dict, test_set: SinglesData):
@@ -360,9 +404,9 @@ def scale_and_combine(
     SLM_weight   = 1.0
 ):
     """
-    Combines probabilities from both the recognizer and SLM by normalising
-    each, averaging with the supplied weight, normalising the result, and
-    returning a tuple with the new probabilities and new guesses.
+    Combines probabilities from both the recognizer and SLM, together with a
+    scalar factor for SLM results, and returns a tuple with the new
+    probabilities and new guesses.
     """
     all_guesses = all_guesses.copy()
     all_new_probs, all_new_guesses = [], []
@@ -400,6 +444,10 @@ def sentence_SLM_combine(
     SLM         ,
     SLM_weight  = 1.0
 ):
+    """
+    Similar to scale_and_combine, but limits sampling to specific sentences
+    and used chained probability for all words in the sentence.
+    """
     all_guesses = all_guesses.copy()
     all_new_probs, all_new_guesses = [], []
     
@@ -432,7 +480,6 @@ def sentence_SLM_combine(
     return all_new_probs, all_new_guesses
 
 
-
 def report_recognizer_results(
     test_words    ,
     probabilities ,
@@ -442,7 +489,7 @@ def report_recognizer_results(
     features
 ):
     """
-    Reports on recognizer accuracy with various parameters
+    Reports briefly on recognizer accuracy with various parameters.
     """
     word_ID  = 0
     num_hits = 0
