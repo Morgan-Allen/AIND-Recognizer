@@ -12,8 +12,7 @@ from my_recognizer import (
     BasicSLM,
     recognize_words,
     report_recognizer_results,
-    get_SLM_probs,
-    normalise_and_combine, 
+    scale_and_combine
 )
 from asl_utils import train_all_words
 import json
@@ -83,18 +82,20 @@ train_words    = training_set.words
 test_words     = testing_set.wordlist
 #train_words   = ['FISH', 'BOOK', 'VEGETABLE']
 #test_words    = ['FISH', 'BOOK', 'VEGETABLE']
+sentences      = testing_set.sentences_index
+sentences      = [sentences[i] for i in sentences]
+
+
 models_dict    = train_all_words(training_set, selector, train_words, verbose = False, features = feature_set)
 
 test_probs, test_guesses = recognize_words(models_dict, testing_set, test_words, verbose = False)
 acc_before = report_recognizer_results(test_words, test_probs, test_guesses, selector, test_SLM, feature_set)
 
 with open("recognizer_results/raw_results.txt", 'w') as file:
-    json.dump((test_probs, test_guesses, test_words), file)
+    json.dump((test_probs, test_guesses, test_words, sentences), file)
 
-test_SLM_probs = get_SLM_probs(test_guesses, test_probs, test_SLM)
-new_probs, new_guesses = normalise_and_combine(test_words, test_probs, test_SLM_probs, test_guesses, 1)
-acc_after = report_recognizer_results(test_words, new_probs, new_guesses, None, None, None)
-
-print("\nAccuracy difference: {}%".format(acc_after - acc_before))
-
-
+#test_SLM_probs = get_SLM_probs(test_guesses, test_probs, test_SLM)
+#new_probs, new_guesses = normalise_and_combine(test_words, test_probs, test_SLM_probs, test_guesses, 1)
+#acc_after = report_recognizer_results(test_words, new_probs, new_guesses, None, None, None)
+#print("\nAccuracy difference: {}%".format(acc_after - acc_before))
+#"""

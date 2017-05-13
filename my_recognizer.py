@@ -88,6 +88,14 @@ class BasicSLM:
     def get_score(self, guesses: list, probabilities: list, index: int, guess: str):
         sample = self.get_sample(guesses, index, guess)
         return math.log(self.get_conditional_prob(sample))
+    
+    
+    def get_sentence_score(self, sentence: list, index: int, guess: str):
+        log_prob = 0
+        for i in range(index):
+            sample = self.get_sample(sentence, index, guess)
+            log_prob += math.log(self.get_conditional_prob(sample))
+        return log_prob
 
 
 
@@ -242,6 +250,13 @@ class FuzzySLM:
         if score == 0: return 0
         score /= 2 * len(sample)
         return math.log(score)
+    
+    
+    def get_sentence_score(self, sentence: list, index: int, guess: str):
+        log_prob = 0
+        for i in range(index):
+            log_prob += self.get_score(sentence, {}, index, guess)
+        return log_prob
 
 
 def normalise_probs(probs):
@@ -374,6 +389,45 @@ def scale_and_combine(
         all_new_guesses.append(best_guess)
         
         all_guesses[index] = best_guess
+    
+    return all_new_probs, all_new_guesses
+
+
+def sentence_SLM_combine(
+    all_guesses ,
+    all_probs   ,
+    sentence_IDs,
+    SLM         ,
+    SLM_weight  = 1.0
+):
+    all_guesses = all_guesses.copy()
+    all_new_probs, all_new_guesses = [], []
+    
+    for indices in sentence_IDs:
+        guess_sentence = [all_guesses[i] for i in indices]
+        probs_sentence = [all_probs  [i] for i in indices]
+        
+        for i in range(len(indices)):
+            probs      = probs_sentence[i]
+            SLM_probs  = {}
+            new_probs  = {}
+            best_score = float("-inf")
+            best_guess = None
+            
+            for guess in probs.keys():
+                SLM_probs[guess] = SLM.get_sentence_score(guess_sentence, i, guess)
+            
+            for guess in probs.keys():
+                new_score = probs[guess] + (SLM_probs[guess] * SLM_weight)
+                new_probs[guess] = new_score
+                
+                if new_score > best_score:
+                    best_score = new_score
+                    best_guess = guess
+            
+            all_new_probs  .append(new_probs )
+            all_new_guesses.append(best_guess)
+            guess_sentence[i] = best_guess
     
     return all_new_probs, all_new_guesses
 
