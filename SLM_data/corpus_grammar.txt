@@ -1,0 +1,28 @@
+
+{
+  "NOUNS" : [
+    "BOY", "GIRL", "MAN", "WOMAN", "BROTHER", "MOTHER", "PEOPLE",
+    "NAME", "LEG",
+    "GROUP", "PARTY", "FRIEND", "HOUSE", "VIDEOTAPE", "MOVIE",
+    "CHOCOLATE", "CANDY", "POTATO", "FISH", "APPLE", "CORN", "VEGETABLE", "BROCCOLI", "CHICKEN",
+    "HOMEWORK", "TEACHER", "BOOK", "STUDENT",
+    "BOX", "TOY", "COAT",
+    "BREAK-DOWN", "CAR",
+    "SUE", "FRANK", "ANN", "FRED", "JOHN", "BILL", "MARY", "JANA",
+    "CHICAGO", "CHINA", "NEW-YORK",
+    "PAST", "FUTURE", "TOMORROW", "YESTERDAY", "LAST-WEEK", "NEXT-WEEK"
+  ],
+  "VERBS" : [
+    "PUTASIDE", "HAVE", "WONT", "LIVE", "GO", "BLAME", "WANT", "PREFER",
+    "BORROW", "LEAVE", "FIND", "WILL", "BUY", "GET", "FINISH", "LOVE",
+    "VISIT", "TELL", "GIVE", "READ", "KNOW", "DECIDE", "SEARCH-FOR",
+    "SHOOT", "SAY", "SEE", "ARRIVE", "WRITE", "LIKE", "SHOULD", "CAN",
+    "HIT", "EAT", "THINK", "SELL", "SAY-1P", "THROW"
+  ],
+  "DESCS" : [
+    "POSS", "MANY", "ALL", "NOT", "NEW", "OLD", "BLUE", "STOLEN"
+  ],
+  "LINKS" : [
+    "WHAT", "BUT", "WHO", "HERE", "SOMETHING-ONE", "IX-1P", "IX", "SELF"
+  ]
+}

@@ -1,6 +1,7 @@
 
 import warnings
 import math
+import json
 from asl_data import SinglesData
 
 
@@ -84,26 +85,160 @@ class BasicSLM:
         return (raw_freq + smooth) / (priors + smooth)
     
     
-    def get_max_prob(self, sample):
-        #  NOTE:  I made various unsuccessful attempts at improving the score
-        #         value returned by get_conditional_prob here.
-        #"""
-        return self.get_conditional_prob(sample)
-        #"""
+    def get_score(self, guesses: list, probabilities: list, index: int, guess: str):
+        sample = self.get_sample(guesses, index, guess)
+        return math.log(self.get_conditional_prob(sample))
+
+
+
+
+class FuzzySLM:
+    
+    
+    class Word:
+        def __init__(self):
+            self.label     = None
+            self.word_type = None
+            self.after     = {}
+            self.before    = {}
         
-        """
-        max_prob = 0
-        divisor  = 1.
-        gram     = min(len(sample), self.max_grams)
-        while gram > 0:
-            sub_sample = sample[0 - gram:]
-            prob       = self.get_conditional_prob(sub_sample)
-            max_prob   = max_prob + (prob / divisor)
-            gram       -= 1
-            divisor    *= 100
-            break
-        return max_prob
-        """
+        def is_type(self):
+            return self.label == self.word_type
+        
+        def normalise_table(self, link_table):
+            sum_words = 0
+            sum_types = 0
+            
+            for key in link_table:
+                if key.is_type(): sum_types += link_table[key]
+                else:             sum_words += link_table[key]
+            
+            for key in link_table:
+                if key.is_type(): link_table[key] /= sum_types
+                else:             link_table[key] /= sum_words
+        
+        def normalise(self):
+            self.normalise_table(self.after )
+            self.normalise_table(self.before)
+        
+        def after_weight(self, after_word):
+            if not after_word in self.after: return 0
+            return self.after[after_word]
+        
+        def before_weight(self, before_word):
+            if not before_word in self.before: return 0
+            return self.before[before_word]
+        
+        def __repr__(self):
+            return self.label
+        
+        def print(self):
+            print("\n  Label:    {}".format(self.label))
+            print("  Category: {}".format(self.word_type))
+            
+            afters = list(self.after.keys())
+            def sort_weights(key): return 0 - self.after[key]
+            afters = sorted(afters, key = sort_weights)
+            print("  These come after:")
+            for key in afters:
+                print("    {:<16.16}: {:<10.10}".format(str(key), str(self.after[key])))
+    
+    
+    def inc_weight(self, word_label, prior_label, weight):
+        word  = self.words[word_label ]
+        prior = self.words[prior_label]
+        if not word  in prior.after : prior.after [word ] = 0
+        if not prior in word .before: word .before[prior] = 0
+        prior.after[word ] += weight
+        word.before[prior] += weight
+    
+    
+    def get_sample(self, words, index, num_words):
+        sample = None
+        if index + 1 <= num_words: sample = words[0:index]
+        else:                      sample = words[index - num_words:index]
+        return sample
+    
+    
+    def __init__(
+        self,
+        grammar_filename: str,
+        corpus_filename:  str,
+        max_grams:        int = 3,
+        verbose           = False
+    ):
+        grammar_file = open(grammar_filename, 'r')
+        grammar      = json.load(grammar_file)
+        
+        self.max_grams = max_grams
+        self.word_list = []
+        self.type_list = []
+        self.words     = {}
+        
+        for type_label in grammar.keys():
+            self.words[type_label] = word_type = self.Word()
+            word_type.label        = type_label
+            word_type.word_type    = type_label
+            self.type_list.append(type_label)
+            
+            for label in grammar[type_label]:
+                self.words[label] = word = self.Word()
+                word.label        = label
+                word.word_type    = type_label
+                self.word_list.append(label)
+        
+        corpus_file = open(corpus_filename, 'r')
+        for line in corpus_file.readlines():
+            line_words = line.split()
+            
+            for i in range(len(line_words)):
+                last_word = line_words[i]
+                last_type = self.words[last_word].word_type
+                
+                sample = self.get_sample(line_words, i, max_grams)
+                weight = 1.
+                for word in sample:
+                    word_type = self.words[word].word_type
+                    self.inc_weight(last_word, word     , weight / 1)
+                    self.inc_weight(last_type, word_type, weight / 2)
+                    self.inc_weight(last_type, word     , weight / 2)
+                    self.inc_weight(last_word, word_type, weight / 4)
+                    weight /= 2
+        
+        for word in self.words.values():
+            word.normalise()
+        
+        if verbose:
+            print("\nGenerated Fuzzy SLM:")
+            for key in self.word_list:
+                word = self.words[key]
+                word.print()
+            print("\nGrammar Types:")
+            for key in self.type_list:
+                word = self.words[key]
+                word.print()
+    
+    
+    def get_score(self, guesses: list, probabilities: list, index: int, guess: str):
+        if not guess in self.words: return 0
+        
+        sample     = self.get_sample(guesses, index, self.max_grams)
+        guess      = self.words[guess]
+        guess_type = self.words[guess.word_type]
+        score      = 0
+        weight     = 2.0
+        
+        for label in sample[::-1]:
+            weight /= 2
+            if not label in self.words: continue
+            
+            word      = self.words[label]
+            word_type = self.words[word.word_type]
+            score     += word     .after_weight(guess     ) * weight / 1
+            score     += word     .after_weight(guess_type) * weight / 3.33
+            score     += word_type.after_weight(guess     ) * weight / 3.33
+            score     += word_type.after_weight(guess_type) * weight / 10
+        return score
 
 
 def normalise_probs(probs):
@@ -221,7 +356,7 @@ def get_SLM_probs(all_guesses, all_probs, SLM):
     return all_SLM_probs
 
 
-def normalise_and_combine(
+def old_normalise_and_combine(
     all_words    ,
     all_probs    ,
     all_SLM_probs,
@@ -255,6 +390,51 @@ def normalise_and_combine(
         all_new_guesses.append(best_guess)
     
     return all_new_probs, all_new_guesses
+
+
+def scale_and_combine(
+    all_guesses  ,
+    all_probs    ,
+    SLM          ,
+    SLM_weight   = 1.0
+):
+    """
+    Combines probabilities from both the recognizer and SLM by normalising
+    each, averaging with the supplied weight, normalising the result, and
+    returning a tuple with the new probabilities and new guesses.
+    """
+    all_guesses = all_guesses.copy()
+    all_new_probs, all_new_guesses = [], []
+    
+    for index in range(len(all_guesses)):
+        probs      = all_probs[index]
+        SLM_probs  = {}
+        new_probs  = {}
+        best_score = float("-inf")
+        best_guess = None
+        
+        for guess in probs.keys():
+            SLM_probs[guess] = SLM.get_score(all_guesses, all_probs, index, guess)
+        
+        #probs      = normalise_probs(probs)
+        #SLM_probs  = normalise_probs(SLM_probs)
+        
+        for guess in probs.keys():
+            new_score = probs[guess] + (SLM_probs[guess] * SLM_weight)
+            new_probs[guess] = new_score
+            
+            if new_score > best_score:
+                best_score = new_score
+                best_guess = guess
+        
+        #new_probs = normalise_probs(new_probs)
+        all_new_probs  .append(new_probs )
+        all_new_guesses.append(best_guess)
+        
+        all_guesses[index] = best_guess
+    
+    return all_new_probs, all_new_guesses
+
 
 
 def report_recognizer_results(
